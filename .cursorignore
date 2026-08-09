@@ -1,0 +1,68 @@
+﻿# Flutter / Dart tooling & caches
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+.packages
+
+# Build outputs
+build/
+**/Generated.xcconfig
+**/flutter_export_environment.sh
+**/ephemeral/
+
+# Android
+android/.gradle/
+android/local.properties
+android/**/build/
+android/app/debug/
+android/app/profile/
+android/app/release/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# iOS / macOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+macos/Flutter/ephemeral/
+**/*.xcworkspace/xcuserdata/
+**/*.xcodeproj/xcuserdata/
+**/*.xcodeproj/project.xcworkspace/xcuserdata/
+
+# Windows
+windows/flutter/ephemeral/
+*.exe
+*.dll
+*.pdb
+
+# IDE / editor
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.history/
+.atom/
+.svn/
+.swiftpm/
+
+# Coverage & symbolication
+coverage/
+app.*.symbols
+app.*.map.json
+
+# Logs & junk
+*.log
+*.class
+*.pyc
+*.swp
+.DS_Store
+
+# Local helpers / dumps
+_db_dump.json
+_inspect_db.py
