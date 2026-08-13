@@ -48,6 +48,7 @@ acme.json
 .env
 **/.env
 traefik/
+docker-compose.yml
 
 # Built APK artifacts (served copies live under site/apps/<id>/)
 *.apk
