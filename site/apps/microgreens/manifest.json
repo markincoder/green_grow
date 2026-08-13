@@ -1,0 +1,43 @@
+{
+    "id": "/apps/microgreens/pwa-v2",
+    "name": "Микрозелень",
+    "short_name": "Микрозелень",
+    "lang": "ru",
+    "dir": "ltr",
+    "start_url": "/apps/microgreens/?src=icon",
+    "scope": "/apps/microgreens/",
+    "display": "standalone",
+    "display_override": ["standalone", "minimal-ui"],
+    "background_color": "#F3FAF5",
+    "theme_color": "#2D6A4F",
+    "description": "Микрозелень дома — база знаний, циклы выращивания и напоминания.",
+    "orientation": "portrait-primary",
+    "categories": ["lifestyle", "productivity"],
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "/apps/microgreens/icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/apps/microgreens/icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "/apps/microgreens/icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "/apps/microgreens/icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

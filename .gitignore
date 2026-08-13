@@ -18,13 +18,13 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# Flutter/Dart/Pub
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
+# Flutter/Dart/Pub (any app under apps/)
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.pub-cache/
+**/.pub/
+**/build/
 /coverage/
 
 # Symbolication
@@ -34,9 +34,9 @@ app.*.symbols
 app.*.map.json
 
 # Android Studio
-/android/app/debug
-/android/app/profile
-/android/app/release
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
 
 # Local helpers
 _db_dump.json
@@ -49,9 +49,12 @@ acme.json
 **/.env
 traefik/
 
-# Root APK duplicate (served copy lives in agronizer/)
-/green_grow.apk
+# Built APK artifacts (served copies live under site/apps/<id>/)
+*.apk
 
 # Local DB
 /db/data.db
 
+# Node
+**/node_modules/
+platform/push/data/

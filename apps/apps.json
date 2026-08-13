@@ -1,0 +1,15 @@
+{
+  "apps": [
+    {
+      "id": "microgreens",
+      "name": "Микрозелень",
+      "shortName": "Микрозелень",
+      "description": "База знаний, циклы выращивания и напоминания для микрозелени дома.",
+      "flutterRoot": "apps/microgreens",
+      "sitePath": "site/apps/microgreens",
+      "baseHref": "/apps/microgreens/",
+      "apkFile": "microgreens.apk",
+      "legacyPaths": ["/app/", "/green_grow.apk"]
+    }
+  ]
+}

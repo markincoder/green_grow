@@ -1,0 +1,48 @@
+name: green_grow
+description: Приложение для выращивания микрозелени дома — каталог, лотки и советы по уходу.
+publish_to: "none"
+version: 1.0.3+4
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  flutter_local_notifications: ^18.0.1
+  flutter_timezone: ^4.1.0
+  google_fonts: ^6.2.1
+  intl: ^0.20.2
+  shared_preferences: ^2.3.2
+  timezone: ^0.10.0
+  url_launcher: ^6.3.1
+  package_info_plus: ^10.2.1
+  path_provider: ^2.1.6
+  web: ^1.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  web:
+    generate: true
+  windows:
+    generate: true
+  image_path: assets/app_icon.png
+  adaptive_icon_background: "#1B4332"
+  adaptive_icon_foreground: assets/app_icon.png
+  remove_alpha_ios: true
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/icons/radish.png
+    - assets/logo_agronizer.png
+    - assets/app_icon.png

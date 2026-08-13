@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Настройка Микрозелень — уведомления (вкладка браузера).">
+  <meta name="theme-color" content="#2D6A4F">
+  <!-- No app manifest here: installing from /gate/ (outside SW scope) creates dead Home Screen icons.
+       Icon install must happen on /apps/microgreens/ where the service worker controls the page. -->
+  <meta name="mobile-web-app-capable" content="no">
+  <meta name="apple-mobile-web-app-capable" content="no">
+  <meta name="apple-mobile-web-app-title" content="Микрозелень">
+  <link rel="apple-touch-icon" href="/apps/microgreens/icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="/apps/microgreens/favicon.png"/>
+  <title>Микрозелень — настройка</title>
+  <script src="/apps/microgreens/push_client.js?v=sub26"></script>
+  <script src="/apps/microgreens/setup_gate.js?v=gate61"></script>
+</head>
+<body>
+  <!-- setup_gate.js: notify only; icon → redirect to /apps/microgreens/?icon=1 -->
+</body>
+</html>
