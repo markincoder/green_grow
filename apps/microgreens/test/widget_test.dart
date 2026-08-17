@@ -1,11 +1,14 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:green_grow/main.dart';
+import 'package:green_grow/state/access_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   setUp(() {
+    AccessStore.remoteEnabled = false;
     SharedPreferences.setMockInitialValues({});
   });
 
@@ -15,7 +18,79 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
-    expect(find.text('Микрозелень'), findsOneWidget);
     expect(find.text('Главная'), findsOneWidget);
+    expect(find.text('База знаний'), findsOneWidget);
+    expect(find.text('Выращивать'), findsOneWidget);
+    expect(find.textContaining('Пробная бесплатная версия до'), findsOneWidget);
+    expect(find.text('Активировать доступ'), findsOneWidget);
+    expect(find.text('или введите код активации'), findsNothing);
+  });
+
+  testWidgets('opens activation sheet from trial card', (tester) async {
+    await tester.pumpWidget(const GreenGrowApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Активировать доступ'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('email@example.com'), findsOneWidget);
+    expect(find.text('Код активации'), findsOneWidget);
+    expect(find.textContaining('Код активации вы можете оформить на сайте'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Активировать'), findsOneWidget);
+  });
+
+  testWidgets('shows activation when trial ended', (tester) async {
+    final started = DateTime.now().toUtc().subtract(const Duration(days: 8));
+    SharedPreferences.setMockInitialValues({
+      'access_first_start_at': started.toIso8601String(),
+    });
+    await tester.pumpWidget(const GreenGrowApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Пробный период закончился'), findsOneWidget);
+    expect(find.textContaining('Пробная бесплатная версия до'), findsOneWidget);
+    expect(find.text('Активировать доступ'), findsOneWidget);
+    expect(find.text('Главная'), findsNothing);
+  });
+
+  testWidgets('shows paid access until date without activate', (tester) async {
+    final started = DateTime.now().toUtc().subtract(const Duration(days: 30));
+    final paid = DateTime.utc(2027, 8, 14);
+    SharedPreferences.setMockInitialValues({
+      'access_first_start_at': started.toIso8601String(),
+      'access_paid_expires_at': paid.toIso8601String(),
+    });
+    await tester.pumpWidget(const GreenGrowApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Доступ активирован до'), findsOneWidget);
+    expect(find.textContaining('Пробная бесплатная версия до'), findsNothing);
+    expect(find.text('Активировать доступ'), findsNothing);
+    expect(find.text('Главная'), findsOneWidget);
+  });
+
+  testWidgets('shows activate again when paid access ended', (tester) async {
+    final started = DateTime.now().toUtc().subtract(const Duration(days: 400));
+    final paid = DateTime.now().toUtc().subtract(const Duration(days: 1));
+    SharedPreferences.setMockInitialValues({
+      'access_first_start_at': started.toIso8601String(),
+      'access_paid_expires_at': paid.toIso8601String(),
+    });
+    await tester.pumpWidget(const GreenGrowApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Срок доступа закончился'), findsOneWidget);
+    expect(find.textContaining('Доступ действовал до'), findsOneWidget);
+    expect(find.text('Активировать доступ'), findsOneWidget);
+    expect(find.textContaining('Доступ активирован до'), findsNothing);
+    expect(find.text('Главная'), findsNothing);
   });
 }

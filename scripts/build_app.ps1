@@ -1,4 +1,5 @@
-# Build one Agronizer Flutter app (APK and/or PWA) into site/apps/<id>/
+﻿# Build one Agronizer Flutter app (APK and/or PWA) into site/apps/<id>/.
+# Артефакты отдаёт FastAPI из platform/push (STATIC_DIR=site). Flutter на сервер не нужен.
 param(
   [Parameter(Mandatory = $true)]
   [Alias("App")]
@@ -43,6 +44,10 @@ if (-not (Test-Path $siteApp)) {
 if (-not $SkipApk) {
   Write-Host ""
   Write-Host "--- APK ---"
+  $keyProps = Join-Path $flutterRoot "android\key.properties"
+  if (-not (Test-Path $keyProps)) {
+    Write-Warning "android/key.properties not found — APK will be signed with the debug key. Play Protect will warn. Run .\scripts\create_android_keystore.ps1"
+  }
   Set-Location $flutterRoot
   $apkOutDir = Join-Path $flutterRoot "build\app\outputs\flutter-apk"
   $arm64Apk = Join-Path $apkOutDir "app-arm64-v8a-release.apk"

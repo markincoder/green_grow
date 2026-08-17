@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:green_grow/data/plants_data.dart';
 import 'package:green_grow/models/plant.dart';
+import 'package:green_grow/widgets/common_widgets.dart';
 
 void main() {
   test('catalog has microgreens from cultivation table', () {
@@ -57,6 +58,10 @@ void main() {
       stage: GrowthStage.germinate,
     );
     expect(dated.titleWithDate(arugula), 'Рукола от 4 авг');
+    expect(
+      addedToGardenMessage('Горох', DateTime(2026, 8, 8)),
+      'Горох от 8 авг - на Моей грядке',
+    );
 
     final fresh = GardenPlant(
       id: '2',
@@ -385,8 +390,8 @@ void main() {
     final due = garden.dueActions(arugula).single;
     expect(due.at, started.add(const Duration(hours: 48)));
     expect(
-      garden.reminderLine(arugula, due, started.add(const Duration(hours: 48))),
-      'Рукола от 1 авг Пора на свет · сегодня',
+      garden.reminderLine(arugula, due),
+      'Рукола от 1 авг Пора на свет',
     );
   });
 }

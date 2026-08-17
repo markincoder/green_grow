@@ -1,0 +1,6 @@
+# Copy to android/key.properties (gitignored) and fill in.
+# Create the keystore:  .\scripts\create_android_keystore.ps1
+storePassword=
+keyPassword=
+keyAlias=upload
+storeFile=../upload-keystore.jks

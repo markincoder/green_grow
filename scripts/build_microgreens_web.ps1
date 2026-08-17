@@ -1,4 +1,4 @@
-# Rebuild PWA only: apps/microgreens → site/apps/microgreens
+# Shortcut: PWA only. Same as: .\scripts\build_app.ps1 -AppId microgreens -SkipApk
 param(
   [switch]$SkipClean
 )

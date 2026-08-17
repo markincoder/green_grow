@@ -335,7 +335,7 @@
     },
 
     /**
-     * Local test banner via SW. Site permission may be granted while OS/Chrome
+     * Local test notification via SW. Site permission may be granted while OS/Chrome
      * notifications are off — only the user can confirm visibility.
      */
     showTestNotification: async function () {
@@ -358,7 +358,7 @@
       // iOS appends "from {PWA name}" — do not put «Микрозелень» in the title.
       var testTitle = isIosDevice() ? 'Проверка' : 'Микрозелень — проверка';
       await reg.showNotification(testTitle, {
-        body: 'Если это видно — нажмите «Вижу баннер» на странице настройки.',
+        body: 'Если это видно — нажмите «Вижу уведомление» на странице настройки.',
         tag: tag,
         renotify: true,
         requireInteraction: false,

@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'screens/activation_screen.dart';
 import 'screens/catalog_screen.dart';
 import 'screens/contacts_screen.dart';
 import 'screens/garden_screen.dart';
 import 'screens/home_screen.dart';
+import 'services/foreground.dart';
 import 'services/reminder_service.dart';
 import 'services/web_push_service.dart';
+import 'state/access_store.dart';
 import 'state/garden_store.dart';
 import 'state/settings_store.dart';
 import 'theme/app_theme.dart';
@@ -38,35 +41,43 @@ class _GreenGrowAppState extends State<GreenGrowApp>
     with WidgetsBindingObserver {
   final GardenStore _store = GardenStore();
   final SettingsStore _settings = SettingsStore();
+  final AccessStore _access = AccessStore();
+  static const _deviceChannel = MethodChannel('com.greengrow.green_grow/device');
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    listenPageForeground(_access.recheck);
+    if (!kIsWeb) {
+      _deviceChannel.setMethodCallHandler((call) async {
+        if (call.method == 'timeChanged') _access.recheck();
+      });
+    }
     _store.addListener(_syncReminders);
     _settings.addListener(_syncReminders);
+    _access.addListener(_syncReminders);
     _bootstrap();
   }
 
   Future<void> _bootstrap() async {
-    await Future.wait([_store.load(), _settings.load()]);
+    await Future.wait([_store.load(), _settings.load(), _access.load()]);
     if (kIsWeb) {
       WebPushService.onNotifyGranted(_onWebNotifyGranted);
-      // Permissions already granted → (re)register push subscription + schedule.
-      if (WebPushService.permissionGranted) {
+      if (_access.unlocked && WebPushService.permissionGranted) {
         await _onWebNotifyGranted();
       }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncReminders();
-      if (kIsWeb && WebPushService.permissionGranted) {
-        // Second pass after SW/Flutter settle.
+      if (kIsWeb && _access.unlocked && WebPushService.permissionGranted) {
         _onWebNotifyGranted();
       }
     });
   }
 
   Future<void> _onWebNotifyGranted() async {
+    if (!_access.unlocked) return;
     if (!_settings.loaded) return;
     if (!_settings.enabled) {
       await _settings.setEnabled(true);
@@ -81,7 +92,7 @@ class _GreenGrowAppState extends State<GreenGrowApp>
   }
 
   Future<void> _syncReminders() async {
-    if (!_store.loaded || !_settings.loaded) return;
+    if (!_store.loaded || !_settings.loaded || !_access.unlocked) return;
     await _settings.pruneDismissals(_store.plants.map((p) => p.id).toSet());
     await ReminderService.instance.sync(
       plants: _store.plants,
@@ -94,7 +105,9 @@ class _GreenGrowAppState extends State<GreenGrowApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.resumed ||
+        state == AppLifecycleState.inactive) {
+      _access.recheck();
       if (kIsWeb && WebPushService.permissionGranted) {
         _onWebNotifyGranted();
       } else {
@@ -109,16 +122,39 @@ class _GreenGrowAppState extends State<GreenGrowApp>
     WidgetsBinding.instance.removeObserver(this);
     _store.removeListener(_syncReminders);
     _settings.removeListener(_syncReminders);
+    _access.removeListener(_syncReminders);
     _store.dispose();
     _settings.dispose();
+    _access.dispose();
+    if (!kIsWeb) {
+      _deviceChannel.setMethodCallHandler(null);
+    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_store, _settings]),
+      animation: Listenable.merge([_store, _settings, _access]),
       builder: (context, _) {
+        final ready = _store.loaded && _settings.loaded && _access.loaded;
+        Widget home;
+        if (!ready) {
+          home = const Scaffold(
+            backgroundColor: AppColors.canvas,
+            body: Center(
+              child: CircularProgressIndicator(color: AppColors.meadow),
+            ),
+          );
+        } else if (!_access.unlocked) {
+          home = ActivationScreen(access: _access);
+        } else {
+          home = MainShell(
+            store: _store,
+            settings: _settings,
+            access: _access,
+          );
+        }
         return MaterialApp(
           title: 'Микрозелень',
           debugShowCheckedModeBanner: false,
@@ -130,14 +166,7 @@ class _GreenGrowAppState extends State<GreenGrowApp>
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          home: _store.loaded && _settings.loaded
-              ? MainShell(store: _store, settings: _settings)
-              : const Scaffold(
-                  backgroundColor: AppColors.canvas,
-                  body: Center(
-                    child: CircularProgressIndicator(color: AppColors.meadow),
-                  ),
-                ),
+          home: home,
         );
       },
     );
@@ -149,10 +178,12 @@ class MainShell extends StatefulWidget {
     super.key,
     required this.store,
     required this.settings,
+    required this.access,
   });
 
   final GardenStore store;
   final SettingsStore settings;
+  final AccessStore access;
 
   @override
   State<MainShell> createState() => _MainShellState();
@@ -187,9 +218,13 @@ class _MainShellState extends State<MainShell> {
       HomeScreen(
         store: widget.store,
         settings: widget.settings,
+        access: widget.access,
         onAddPlant: () => setState(() => _index = 2),
       ),
-      GardenScreen(store: widget.store),
+      GardenScreen(
+        store: widget.store,
+        onAddPlant: () => setState(() => _index = 2),
+      ),
       CatalogScreen(store: widget.store),
       const ContactsScreen(),
     ];
@@ -218,7 +253,7 @@ class _MainShellState extends State<MainShell> {
           NavigationDestination(
             icon: Icon(Icons.yard_outlined),
             selectedIcon: Icon(Icons.yard_rounded),
-            label: 'Моя зелень',
+            label: 'Моя грядка',
           ),
           NavigationDestination(
             icon: Icon(Icons.eco_outlined),

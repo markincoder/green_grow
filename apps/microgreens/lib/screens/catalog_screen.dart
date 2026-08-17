@@ -18,28 +18,24 @@ class CatalogScreen extends StatefulWidget {
 
 class _CatalogScreenState extends State<CatalogScreen> {
   String _query = '';
-  String _tag = 'все';
-
-  static const _filters = [
-    'все',
-    'быстро',
-    'новичкам',
-    'острое',
-    'мягкое',
-    'медленные',
-    'злаки',
-  ];
+  Difficulty? _difficulty;
 
   List<Plant> get _filtered {
-    return plantsCatalog.where((plant) {
-      final q = _query.trim().toLowerCase();
+    final q = _query.trim().toLowerCase();
+    final items = plantsCatalog.where((plant) {
       final matchesQuery = q.isEmpty ||
           plant.name.toLowerCase().contains(q) ||
           plant.tags.any((t) => t.contains(q));
-      final matchesTag = _tag == 'все' || plant.tags.contains(_tag);
-      return matchesQuery && matchesTag;
+      final matchesDifficulty =
+          _difficulty == null || plant.difficulty == _difficulty;
+      return matchesQuery && matchesDifficulty;
     }).toList();
+    items.sort((a, b) => _nameKey(a.name).compareTo(_nameKey(b.name)));
+    return items;
   }
+
+  static String _nameKey(String name) =>
+      name.toLowerCase().replaceAll('ё', 'е');
 
   @override
   Widget build(BuildContext context) {
@@ -82,22 +78,25 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   height: 40,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: _filters.length,
+                    itemCount: 1 + Difficulty.values.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 8),
                     itemBuilder: (context, index) {
-                      final tag = _filters[index];
-                      final selected = tag == _tag;
-                      return ChoiceChip(
-                        label: Text(tag),
-                        selected: selected,
-                        onSelected: (_) => setState(() => _tag = tag),
-                        selectedColor: AppColors.sprout,
-                        backgroundColor: Colors.white,
-                        labelStyle: TextStyle(
-                          color: AppColors.forest,
-                          fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w500,
-                        ),
+                      if (index == 0) {
+                        return _DifficultyChip(
+                          label: 'все',
+                          selected: _difficulty == null,
+                          onSelected: () => setState(() => _difficulty = null),
+                        );
+                      }
+                      final level = Difficulty.values[index - 1];
+                      return _DifficultyChip(
+                        label: switch (level) {
+                          Difficulty.easy => 'Легко',
+                          Difficulty.medium => 'Средне',
+                          Difficulty.hard => 'Сложно',
+                        },
+                        selected: _difficulty == level,
+                        onSelected: () => setState(() => _difficulty = level),
                       );
                     },
                   ),
@@ -121,48 +120,84 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     itemBuilder: (context, index) {
                       final plant = items[index];
                       return SoftPanel(
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => PlantDetailScreen(
-                                plant: plant,
-                                store: widget.store,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            PlantAvatar(icon: plant.icon, size: 58),
-                            const SizedBox(width: 14),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    plant.name,
-                                    style:
-                                        Theme.of(context).textTheme.titleMedium,
-                                  ),
-                                  Text(
-                                    plant.tags.take(3).join(' · '),
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .bodySmall
-                                        ?.copyWith(
-                                          color: AppColors.muted,
-                                        ),
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    '${plant.seedGrams} г на лоток · Полный цикл ${plant.cycleDaysLabel}',
-                                    style:
-                                        Theme.of(context).textTheme.bodySmall,
-                                  ),
-                                ],
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (_) => PlantDetailScreen(
+                                        plant: plant,
+                                        store: widget.store,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Row(
+                                  children: [
+                                    PlantAvatar(icon: plant.icon, size: 58),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            plant.name,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .titleMedium,
+                                          ),
+                                          Text(
+                                            plant.tags.take(3).join(' · '),
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall
+                                                ?.copyWith(
+                                                  color: AppColors.muted,
+                                                ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            '${plant.seedGrams} г на лоток · Полный цикл ${plant.cycleDaysLabel}',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodySmall,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    DifficultyBadge(
+                                      difficulty: plant.difficulty,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                            DifficultyBadge(difficulty: plant.difficulty),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              height: 44,
+                              child: FilledButton.icon(
+                                onPressed: () => addPlantToGarden(
+                                  context: context,
+                                  plant: plant,
+                                  store: widget.store,
+                                ),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: AppColors.leaf,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                icon: const Icon(Icons.add_rounded, size: 20),
+                                label: const Text('Добавить на грядку'),
+                              ),
+                            ),
                           ],
                         ),
                       );
@@ -170,6 +205,33 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DifficultyChip extends StatelessWidget {
+  const _DifficultyChip({
+    required this.label,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onSelected(),
+      selectedColor: AppColors.sprout,
+      backgroundColor: Colors.white,
+      labelStyle: TextStyle(
+        color: AppColors.forest,
+        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
       ),
     );
   }

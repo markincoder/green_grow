@@ -1,8 +1,10 @@
 package com.greengrow.green_grow
 
+import android.content.BroadcastReceiver
 import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -17,11 +19,19 @@ import java.io.FileOutputStream
 
 class MainActivity : FlutterActivity() {
     private val channelName = "com.greengrow.green_grow/device"
+    private var deviceChannel: MethodChannel? = null
+
+    private val timeReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            deviceChannel?.invokeMethod("timeChanged", null)
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
-            .setMethodCallHandler { call, result ->
+        val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channelName)
+        deviceChannel = channel
+        channel.setMethodCallHandler { call, result ->
                 when (call.method) {
                     "isIgnoringBatteryOptimizations" ->
                         result.success(isIgnoringBatteryOptimizations())
@@ -49,6 +59,31 @@ class MainActivity : FlutterActivity() {
                     else -> result.notImplemented()
                 }
             }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_TIME_CHANGED)
+            addAction(Intent.ACTION_DATE_CHANGED)
+            addAction(Intent.ACTION_TIMEZONE_CHANGED)
+        }
+        if (Build.VERSION.SDK_INT >= 33) {
+            registerReceiver(timeReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("DEPRECATION")
+            registerReceiver(timeReceiver, filter)
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        deviceChannel?.invokeMethod("timeChanged", null)
+    }
+
+    override fun onDestroy() {
+        try {
+            unregisterReceiver(timeReceiver)
+        } catch (_: Exception) {
+        }
+        deviceChannel = null
+        super.onDestroy()
     }
 
     private fun isIgnoringBatteryOptimizations(): Boolean {

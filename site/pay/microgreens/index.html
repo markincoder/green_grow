@@ -2,20 +2,24 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Оплата — Микрозелень · Агронайзер</title>
-  <meta name="description" content="Оплата доступа к приложению Микрозелень." />
+  <meta name="description" content="Оплата доступа к приложению Микрозелень на {{PAID_PERIOD_LABEL}}." />
+  <meta name="theme-color" content="#1b4332" />
+  <link rel="icon" type="image/png" href="/apps/microgreens/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://yookassa.ru/integration/simplepay/css/yookassa_construct_form.css?v=1.34.0" />
   <style>
     :root {
       --forest: #1b4332;
+      --leaf: #2d6a4f;
       --mist: #d8f3dc;
       --canvas: #f3faf5;
+      --cream: #f7f4ee;
       --ink: #1a2e24;
       --muted: #5c7268;
+      --sun: #e9b44c;
     }
 
     * { box-sizing: border-box; }
@@ -26,79 +30,455 @@
       font-family: "Manrope", sans-serif;
       color: var(--ink);
       background:
-        linear-gradient(165deg, var(--mist) 0%, var(--canvas) 45%, #e8f6ec 100%);
+        linear-gradient(165deg, var(--mist) 0%, var(--canvas) 48%, #e8f6ec 100%);
       -webkit-font-smoothing: antialiased;
     }
 
     .page {
       width: min(440px, calc(100% - 2rem));
       margin: 0 auto;
-      padding: 2.5rem 0 3rem;
+      padding: calc(1.6rem + env(safe-area-inset-top, 0px)) 0 3rem;
     }
 
     .back {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
       color: var(--forest);
       font-weight: 600;
-      font-size: 0.95rem;
+      font-size: 0.92rem;
       text-decoration: none;
       margin-bottom: 1.25rem;
     }
 
     .back:hover { text-decoration: underline; }
 
+    .card {
+      background: #fff;
+      border-radius: 1.4rem;
+      padding: 1.45rem 1.3rem 1.45rem;
+      box-shadow: 0 18px 40px rgba(27, 67, 50, 0.1);
+    }
+
+    .head {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .head img {
+      width: 3rem;
+      height: 3rem;
+      border-radius: 0.85rem;
+    }
+
+    .kicker {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: #40916c;
+      margin: 0 0 0.1rem;
+    }
+
     h1 {
       font-family: "Fraunces", serif;
       font-weight: 700;
-      font-size: clamp(1.6rem, 5vw, 2rem);
+      font-size: 1.45rem;
       letter-spacing: -0.02em;
-      margin: 0 0 0.35rem;
+      margin: 0;
       color: var(--forest);
     }
 
     .lead {
-      margin: 0 0 1.5rem;
+      margin: 0 0 1rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .includes {
+      list-style: none;
+      margin: 0 0 1.15rem;
+      padding: 0;
+      display: grid;
+      gap: 0.4rem;
+    }
+
+    .includes li {
+      display: flex;
+      gap: 0.5rem;
+      align-items: flex-start;
+      font-size: 0.9rem;
+      color: var(--ink);
+    }
+
+    .includes li::before {
+      content: "";
+      width: 0.7rem;
+      height: 0.7rem;
+      margin-top: 0.32rem;
+      border-radius: 50%;
+      background: #52b788;
+      flex-shrink: 0;
+    }
+
+    .price {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.9rem 0;
+      margin-bottom: 1.15rem;
+      border-top: 1px solid #e4f0e8;
+      border-bottom: 1px solid #e4f0e8;
+    }
+
+    .price__label {
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .price__value {
+      font-family: "Fraunces", serif;
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: var(--forest);
+      letter-spacing: -0.03em;
+    }
+
+    label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+
+    input[type="email"] {
+      width: 100%;
+      font: inherit;
+      padding: 0.82rem 0.9rem;
+      border: 1.5px solid #cde5d6;
+      border-radius: 0.8rem;
+      margin-bottom: 0.35rem;
+      background: var(--cream);
+    }
+
+    input[type="email"]:focus {
+      outline: none;
+      border-color: #40916c;
+      box-shadow: 0 0 0 3px rgba(64, 145, 108, 0.18);
+      background: #fff;
+    }
+
+    .field-hint {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin: 0 0 1.1rem;
+    }
+
+    .pay-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      background: var(--sun);
+      color: var(--forest);
+      padding: 0.95rem 1.2rem;
+      border-radius: 999px;
+      text-decoration: none;
+    }
+
+    .pay-btn:hover { background: #f0c56a; }
+
+    .pay-btn:focus-visible {
+      outline: 2px solid var(--forest);
+      outline-offset: 3px;
+    }
+
+    .pay-btn:disabled {
+      opacity: 0.65;
+      cursor: wait;
+    }
+
+    .pay-err {
+      display: none;
+      background: rgba(155, 34, 38, 0.1);
+      color: #9b2226;
+      border-radius: 0.75rem;
+      padding: 0.7rem 0.85rem;
+      font-size: 0.88rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .pay-err.is-on { display: block; }
+
+    .secure {
+      margin: 0.9rem 0 0;
+      text-align: center;
+      font-size: 0.75rem;
       color: var(--muted);
     }
 
-    .card {
-      background: #fff;
-      border-radius: 1.1rem;
-      padding: 1.25rem 1.1rem 1.4rem;
-      box-shadow: 0 18px 40px rgba(27, 67, 50, 0.1);
+    #guest-pay[hidden],
+    #pay-form[hidden],
+    #pay-loading[hidden],
+    #paid-box[hidden],
+    #checkout-details[hidden],
+    #pay-secure[hidden] {
+      display: none !important;
+    }
+
+    .guest-copy {
+      margin: 0 0 1rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
+    .access-label {
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #40916c;
+      margin: 0 0 0.4rem;
+    }
+
+    .access-code {
+      font-family: "Fraunces", serif;
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: 0.28em;
+      text-align: center;
+      color: var(--forest);
+      margin: 0 0 0.9rem;
+      font-variant-numeric: tabular-nums;
     }
   </style>
 </head>
-<body>
+<body data-user-email="{{USER_EMAIL}}" data-paid-label="{{PAID_PERIOD_LABEL}}">
   <main class="page">
-    <a class="back" href="/">← На главную</a>
-    <h1>Микрозелень</h1>
-    <p class="lead">Оплата доступа к приложению, 300 ₽.</p>
+    <a class="back" href="/#app">← На главную</a>
     <div class="card">
-      <form class="yoomoney-payment-form" action="https://yookassa.ru/integration/simplepay/payment" method="post" accept-charset="utf-8">
-        <div class="ym-customer-info">
-          <div class="ym-block-title">О покупателе</div>
-          <input name="cps_email" class="ym-input" placeholder="Email" type="text" value="">
+      <div class="head">
+        <img src="/apps/microgreens/icons/Icon-192.png" alt="" width="48" height="48" />
+        <div>
+          <p class="kicker">Микрозелень</p>
+          <h1>Доступ на {{PAID_PERIOD_LABEL}}</h1>
         </div>
-        <div class="ym-hidden-inputs">
-          <input name="shopSuccessURL" type="hidden" value="https://agronizer.ru/">
-          <input name="shopFailURL" type="hidden" value="https://agronizer.ru/">
+      </div>
+      <p class="lead" id="pay-lead">Напоминания, база знаний и циклы выращивания — в одном приложении.</p>
+      <div id="checkout-details">
+        <ul class="includes">
+          <li>Полный доступ к приложению</li>
+          <li>Напоминания о поливе и срезе</li>
+          <li>База сортов и циклы выращивания</li>
+        </ul>
+        <div class="price">
+          <span class="price__label">К оплате</span>
+          <span class="price__value">{{YOOKASSA_SUM}} ₽</span>
         </div>
-        <input name="customerNumber" type="hidden" value="Оплата доступа к приложению">
-        <div class="ym-payment-btn-block ym-before-line ym-align-space-between">
-          <div class="ym-input-icon-rub ym-display-none">
-            <input name="sum" placeholder="0.00" class="ym-input ym-sum-input ym-required-input" type="number" step="any" value="300">
-          </div>
-          <button data-text="Заплатить" class="ym-btn-pay ym-result-price" type="submit">
-            <span class="ym-text-crop">Заплатить</span>
-            <span class="ym-price-output"> 300,00&nbsp;₽</span>
-          </button>
-          <img src="https://yookassa.ru/integration/simplepay/img/iokassa-gray.svg?v=1.34.0" class="ym-logo" width="114" height="27" alt="ЮKassa">
-        </div>
-        <input name="shopId" type="hidden" value="1283724">
+      </div>
+      <p class="pay-err" id="pay-err"></p>
+      <p class="guest-copy" id="pay-loading">Проверяем вход…</p>
+      <div id="paid-box" hidden>
+        <p class="access-label">Ваш код доступа</p>
+        <p class="access-code" id="access-code"></p>
+        <button type="button" class="pay-btn" id="btn-copy-code">Скопировать</button>
+        <p class="secure" id="access-until">Действует {{PAID_PERIOD_LABEL}}</p>
+      </div>
+      <div id="guest-pay" hidden>
+        <p class="guest-copy">Чтобы оплатить, войдите через Яндекс или VK ID — пароль не нужен.</p>
+        <a class="pay-btn" href="/?download=1">Войти</a>
+      </div>
+      <form id="pay-form" hidden>
+        <label for="pay-email">Email для чека</label>
+        <input id="pay-email" name="email" type="email" required autocomplete="email" value="{{USER_EMAIL}}" placeholder="you@email.ru">
+        <p class="field-hint">Чек придёт на эту почту. Если вошли через Яндекс или VK — поле уже заполнено.</p>
+        <button type="submit" class="pay-btn" id="pay-btn">Оплатить {{YOOKASSA_SUM}} ₽</button>
       </form>
+      <p class="secure" id="pay-secure">Оплата на защищённой странице ЮKassa</p>
     </div>
   </main>
-  <script src="https://yookassa.ru/integration/simplepay/js/yookassa_construct_form.js?v=1.34.0"></script>
+  <script>
+    (function () {
+      const form = document.getElementById("pay-form");
+      const guest = document.getElementById("guest-pay");
+      const paidBox = document.getElementById("paid-box");
+      const loading = document.getElementById("pay-loading");
+      const field = document.getElementById("pay-email");
+      const btn = document.getElementById("pay-btn");
+      const err = document.getElementById("pay-err");
+      const preset = (document.body.getAttribute("data-user-email") || "").trim();
+      if (preset && field && !field.value.trim()) field.value = preset;
+
+      function showErr(text) {
+        err.textContent = text;
+        err.classList.add("is-on");
+      }
+
+      function ready() {
+        if (loading) loading.hidden = true;
+      }
+
+      function hideCheckout() {
+        guest.hidden = true;
+        form.hidden = true;
+      }
+
+      function showGuest() {
+        ready();
+        paidBox.hidden = true;
+        guest.hidden = false;
+        form.hidden = true;
+      }
+
+      function showForm() {
+        ready();
+        paidBox.hidden = true;
+        guest.hidden = true;
+        form.hidden = false;
+      }
+
+      function formatExpiry(iso) {
+        if (!iso) return "";
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return "";
+        return d.toLocaleDateString("ru-RU", { day: "numeric", month: "long", year: "numeric" });
+      }
+
+      function showCode(code, expiresAt) {
+        ready();
+        hideCheckout();
+        paidBox.hidden = false;
+        document.getElementById("checkout-details").hidden = true;
+        document.getElementById("pay-secure").hidden = true;
+        const paidLabel = document.body.dataset.paidLabel || "1 год";
+        document.getElementById("pay-lead").textContent =
+          "Вот ваш код доступа. Через " + paidLabel + " его нужно будет купить снова.";
+        const el = document.getElementById("access-code");
+        el.textContent = String(code || "").replace(/\s/g, "").split("").join(" ");
+        el.dataset.code = String(code || "");
+        const until = document.getElementById("access-until");
+        const label = formatExpiry(expiresAt);
+        until.textContent = label ? "Действует до " + label : "Действует " + paidLabel;
+      }
+
+      document.getElementById("btn-copy-code").addEventListener("click", async function () {
+        const raw = document.getElementById("access-code").dataset.code || "";
+        const copyBtn = document.getElementById("btn-copy-code");
+        if (!raw) return;
+        try {
+          await navigator.clipboard.writeText(raw);
+          copyBtn.textContent = "Скопировано";
+          setTimeout(function () { copyBtn.textContent = "Скопировать"; }, 1600);
+        } catch {
+          copyBtn.textContent = "Не удалось скопировать";
+        }
+      });
+
+      fetch("/api/auth/me", { credentials: "include" })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(async function (me) {
+          if (!me || me.guest) {
+            showGuest();
+            return;
+          }
+          if (!me.termsAccepted) {
+            location.replace("/?terms=1");
+            return;
+          }
+          if (me.email && field && !field.value.trim()) field.value = me.email;
+          if (me.accessCode) {
+            showCode(me.accessCode, me.expiresAt);
+            return;
+          }
+          try {
+            const done = await fetch("/api/pay/complete", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: "{}",
+            });
+            const paid = done.ok ? await done.json() : {};
+            if (paid.accessCode) {
+              showCode(paid.accessCode, paid.expiresAt);
+              return;
+            }
+            if (paid.pending) {
+              ready();
+              hideCheckout();
+              document.getElementById("checkout-details").hidden = true;
+              loading.hidden = false;
+              loading.textContent = "Оплата ещё подтверждается. Обновите страницу через несколько секунд.";
+              return;
+            }
+          } catch {
+            /* ignore */
+          }
+          showForm();
+        })
+        .catch(function () {
+          showGuest();
+        });
+
+      form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        err.classList.remove("is-on");
+        const email = (field.value || "").trim();
+        if (!email || email.indexOf("@") < 0) {
+          showErr("Укажите email для чека.");
+          field.focus();
+          return;
+        }
+        btn.disabled = true;
+        btn.textContent = "Переходим к оплате…";
+        try {
+          await fetch("/api/auth/email", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email }),
+          });
+          const r = await fetch("/api/pay/microgreens", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email }),
+          });
+          const data = await r.json().catch(function () { return {}; });
+          if (r.status === 401) {
+            showGuest();
+            showErr("Сначала войдите — через Яндекс или VK ID.");
+            return;
+          }
+          if (data.accessCode) {
+            showCode(data.accessCode, data.expiresAt);
+            return;
+          }
+          if (data.error === "invalid_credentials" || data.error === "pay_config") {
+            showErr("Оплата сейчас недоступна. Попробуйте позже.");
+            return;
+          }
+          if (!r.ok || !data.confirmationUrl) {
+            showErr("Не удалось создать платёж. Попробуйте ещё раз.");
+            return;
+          }
+          window.location.href = data.confirmationUrl;
+        } catch {
+          showErr("Нет связи с оплатой. Проверьте интернет и повторите.");
+        } finally {
+          btn.disabled = false;
+          btn.textContent = "Оплатить {{YOOKASSA_SUM}} ₽";
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

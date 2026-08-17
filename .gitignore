@@ -47,6 +47,8 @@ acme.json
 **/acme.json
 .env
 **/.env
+.env.prod
+**/.env.prod
 traefik/
 docker-compose.yml
 
@@ -56,6 +58,14 @@ docker-compose.yml
 # Local DB
 /db/data.db
 
-# Node
+# Android release signing (never commit)
+**/*.jks
+**/*.keystore
+**/key.properties
+
+# Python
+**/.venv/
+/venv/
+**/__pycache__/
 **/node_modules/
 platform/push/data/

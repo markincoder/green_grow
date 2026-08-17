@@ -374,7 +374,7 @@ class ReminderService {
           sow.add(
             item(
               key: key,
-              text: garden.reminderLine(plant, action, day),
+              text: garden.reminderLine(plant, action),
               pushText: garden.pushLine(plant, action),
               kind: DueActionKind.sow,
               gardenId: garden.id,
@@ -395,7 +395,7 @@ class ReminderService {
           toLight.add(
             item(
               key: key,
-              text: garden.reminderLine(plant, due, day),
+              text: garden.reminderLine(plant, due),
               pushText: garden.pushLine(plant, due),
               kind: DueActionKind.toLight,
               gardenId: garden.id,
@@ -418,7 +418,7 @@ class ReminderService {
           harvest.add(
             item(
               key: key,
-              text: garden.reminderLine(plant, due, day),
+              text: garden.reminderLine(plant, due),
               pushText: garden.pushLine(plant, due),
               kind: DueActionKind.harvest,
               gardenId: garden.id,

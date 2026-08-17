@@ -1,4 +1,4 @@
-# Rebuild APK only: apps/microgreens → site/apps/microgreens/microgreens.apk
+# Shortcut: APK only. Same as: .\scripts\build_app.ps1 -AppId microgreens -SkipWeb
 param(
   [switch]$SkipClean,
   [switch]$VerifyApk

@@ -1,3 +1,4 @@
+# Called by build_app.ps1 after `flutter build web`.
 # Replace Flutter's uninstall-stub SW with the app PWA worker (fetch + push).
 param(
   [Parameter(Mandatory = $true)]

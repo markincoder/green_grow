@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../models/plant.dart';
+import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
 
 class SectionHeader extends StatelessWidget {
@@ -305,6 +306,38 @@ Future<StartTrayResult?> showStartDateSheet({
     backgroundColor: Colors.transparent,
     builder: (context) => _StartDateSheet(plant: plant),
   );
+}
+
+String addedToGardenMessage(String name, DateTime startedAt) {
+  final date = formatStartDate(startedAt).replaceAll('.', '');
+  return '$name от $date - на Моей грядке';
+}
+
+/// Opens the start sheet, saves the tray, shows «Горох от 8 авг - на Моей грядке».
+Future<bool> addPlantToGarden({
+  required BuildContext context,
+  required Plant plant,
+  required GardenStore store,
+}) async {
+  final result = await showStartDateSheet(context: context, plant: plant);
+  if (result == null || !context.mounted) return false;
+
+  await store.startPlant(
+    plantId: plant.id,
+    startedAt: result.startedAt,
+    stage: result.stage,
+    customName: result.customName,
+    seedGrams: result.seedGrams,
+  );
+  if (!context.mounted) return true;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(addedToGardenMessage(result.customName, result.startedAt)),
+      behavior: SnackBarBehavior.floating,
+    ),
+  );
+  return true;
 }
 
 class _StartDateSheet extends StatefulWidget {

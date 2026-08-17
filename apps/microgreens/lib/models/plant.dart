@@ -544,12 +544,9 @@ class GardenPlant {
     return [DueAction(kind: kind, at: at)];
   }
 
-  /// Home reminder line with relative timing.
-  String reminderLine(Plant plant, DueAction action, [DateTime? now]) {
-    final at = now ?? DateTime.now();
-    final when = currentStageWhenPhrase(plant, at);
-    return '${titleWithDate(plant)} ${action.message} · $when';
-  }
+  /// Home reminder line. Timing is implied by the «на сегодня» list.
+  String reminderLine(Plant plant, DueAction action) =>
+      '${titleWithDate(plant)} ${action.message}';
 
   /// Push text without date ranges.
   String pushLine(Plant plant, DueAction action) =>

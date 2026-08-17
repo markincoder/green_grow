@@ -35,6 +35,21 @@ function Get-AgronizerApp {
   return $app
 }
 
+function Get-AgronizerStackRoot {
+  # Server: docker-compose.yml next to agronizer/. Local: compose may sit in this repo (gitignored).
+  $repo = Get-AgronizerRoot
+  $parent = Split-Path -Parent $repo
+  $parentCompose = Join-Path $parent "docker-compose.yml"
+  $parentAgronizer = Join-Path $parent "agronizer"
+  if ((Test-Path $parentCompose) -and (Test-Path $parentAgronizer)) {
+    return $parent
+  }
+  if (Test-Path (Join-Path $repo "docker-compose.yml")) {
+    return $repo
+  }
+  return $null
+}
+
 function Get-FlutterBat {
   $flutter = "C:\src\flutter\bin\flutter.bat"
   if (Test-Path $flutter) { return $flutter }

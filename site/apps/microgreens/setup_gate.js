@@ -40,6 +40,20 @@
   var APP_PATH = '/apps/microgreens/';
   var GATE_PATH = '/gate/microgreens/';
 
+  function appSlug() {
+    var m = APP_PATH.match(/\/apps\/([a-z0-9-]+)\//);
+    return (m && m[1]) || 'microgreens';
+  }
+
+  function reportDownload(kind) {
+    fetch('/api/download', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: kind, slug: appSlug() }),
+    }).catch(function () {});
+  }
+
   function ua() {
     return navigator.userAgent || '';
   }
@@ -272,6 +286,7 @@
     });
     window.addEventListener('appinstalled', function () {
       deferredInstallPrompt = null;
+      reportDownload('pwa');
       markIconStepDone();
       if (step === 'icon' && root) {
         if (notifyBeforeIcon()) {
@@ -1010,7 +1025,7 @@
         btnSecondary.hidden = true;
         btnSkip.hidden = false;
         btnSkip.textContent = 'Пропустить — ярлык уже есть';
-        setStatus('Яндекс: ярлык должен открывать приложение, а не мастер установки.', 'ok');
+        setStatus('');
       } else if (isAndroidWebApk()) {
         title.textContent = 'PWA уже установлено';
         lead.textContent =
@@ -1141,7 +1156,7 @@
         refreshPermOnReturn = false;
         steps.innerHTML =
           '<li>Сайту уже <b>разрешено</b> — это главный шаг</li>' +
-          '<li>Нажмите «Проверить» — подписка и тест-баннер на экране</li>' +
+          '<li>Нажмите «Проверить» — подписка и тестовое уведомление на экране</li>' +
           '<li>Настройки приложения браузера в Android — только если тест пустой при разрешённом сайте</li>';
         btnPrimary.hidden = true;
         btnSecondary.hidden = false;
@@ -1193,7 +1208,7 @@
       var siteOk = notifGranted();
       if (siteOk) {
         lead.textContent =
-          'Сайту разрешено. Смотрите баннер «Микрозелень — проверка». Если пусто — повторите тест сайта.';
+          'Сайту разрешено. Смотрите уведомление «Микрозелень — проверка». Если пусто — повторите тест сайта.';
       } else if (isIos()) {
         lead.textContent =
           'Сайт ещё не разрешён. На iOS: иконка на «Домой» и Настройки → Микрозелень → Уведомления.';
@@ -1205,7 +1220,7 @@
         '<li>Статус сайта: <b>' +
         sitePermLabel() +
         '</b></li>' +
-        '<li>Увидели баннер → «Вижу баннер — готово»</li>' +
+        '<li>Увидели уведомление → «Вижу уведомление — готово»</li>' +
         '<li>Не увидели → «Повторить тест сайта»</li>';
       if (!siteOk) {
         stepsHtml += isIos()
@@ -1225,9 +1240,9 @@
       btnPrimary.textContent = 'Повторить тест сайта';
       btnSecondary.hidden = !(isAndroid() && !isIos() && siteOk && confirmTestAttempts >= 2);
       btnSecondary.textContent =
-        'Сайт OK, баннера нет — настройки «' + browserAppLabel() + '»';
+        'Сайт OK, уведомления нет — настройки «' + browserAppLabel() + '»';
       btnEnter.hidden = false;
-      btnEnter.textContent = 'Вижу баннер — готово';
+      btnEnter.textContent = 'Вижу уведомление — готово';
       btnSkip.hidden = false;
       btnSkip.textContent = 'Пропустить — без Push';
       if (!siteOk) {
@@ -1239,7 +1254,7 @@
         );
       } else if (confirmTestAttempts >= 2) {
         setStatus(
-          'Сайт разрешён, баннера нет после повторов — можно проверить «' +
+          'Сайт разрешён, уведомления нет после повторов — можно проверить «' +
             browserAppLabel() +
             '».',
           'bad',
@@ -1502,14 +1517,14 @@
             setStatus(
               'Тест сайта отправлен снова (попытка ' +
                 confirmTestAttempts +
-                '). Если баннера нет при разрешённом сайте — тогда настройки «' +
+                '). Если уведомления нет при разрешённом сайте — тогда настройки «' +
                 browserAppLabel() +
                 '».',
               'bad',
             );
           } else {
             setStatus(
-              'Тест сайта отправлен снова. Увидели → «Вижу баннер». Нет → ещё раз «Повторить тест сайта».',
+              'Тест сайта отправлен снова. Увидели → «Вижу уведомление». Нет → ещё раз «Повторить тест сайта».',
             );
           }
           render();
@@ -1637,7 +1652,7 @@
         setStatus(
           'Сначала 2 раза нажмите «Повторить тест сайта». К настройкам «' +
             browserAppLabel() +
-            '» перейдём только если баннера всё ещё нет.',
+            '» перейдём только если уведомления всё ещё нет.',
           'ok',
         );
         return;
@@ -1700,6 +1715,7 @@
   function onSkip() {
     if (step === 'icon') {
       if (isChromeAndroid()) {
+        reportDownload('apk');
         location.href = APP_PATH + 'microgreens.apk';
         return;
       }
@@ -1739,7 +1755,7 @@
     if (step === 'confirm') {
       finishNotifyOk(
         (lastTechOkMessage ? lastTechOkMessage + ' ' : '') +
-          'Пользователь подтвердил, что тестовый баннер виден.',
+          'Пользователь подтвердил, что тестовое уведомление видно.',
       );
       return;
     }
@@ -1826,6 +1842,8 @@
       sessionStorage.removeItem('agronizer_icon_session_v1');
       sessionStorage.removeItem(INSTALL_SKIP_KEY);
     } catch (_) {}
+
+    if (isInstalledPwa()) reportDownload('pwa');
 
     // —— /apps/* : Flutter boots from index.html; gate overlays when needed ——
     if (!isGatePage()) {

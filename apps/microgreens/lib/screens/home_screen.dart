@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../services/reminder_service.dart';
+import '../state/access_store.dart';
 import '../state/garden_store.dart';
 import '../state/settings_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/brand_logo.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/trial_access_card.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -12,11 +15,13 @@ class HomeScreen extends StatefulWidget {
     super.key,
     required this.store,
     required this.settings,
+    required this.access,
     required this.onAddPlant,
   });
 
   final GardenStore store;
   final SettingsStore settings;
+  final AccessStore access;
   final VoidCallback onAddPlant;
 
   @override
@@ -89,28 +94,18 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: AnimatedBuilder(
-        animation: Listenable.merge([widget.store, widget.settings]),
+        animation: Listenable.merge([
+          widget.store,
+          widget.settings,
+          widget.access,
+        ]),
         builder: (context, _) {
           final reminders = _reminders;
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             children: [
-              Center(
-                child: Image.asset(
-                  'assets/logo_agronizer.png',
-                  height: 120,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => Text(
-                    'Микрозелень от agronizer',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          color: AppColors.forest,
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
+              const BrandLogo(),
+              const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
                 height: 58,
@@ -200,6 +195,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     item: item,
                     onDone: () => _markDone(item),
                   ),
+              ],
+              if (widget.access.trialEndsAt != null ||
+                  widget.access.paidExpiresAt != null) ...[
+                const SizedBox(height: 22),
+                TrialAccessCard(
+                  key: const ValueKey('trial-access'),
+                  access: widget.access,
+                ),
               ],
             ],
           );

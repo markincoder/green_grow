@@ -18,27 +18,12 @@ class PlantDetailScreen extends StatelessWidget {
   final GardenPlant? gardenPlant;
 
   Future<void> _start(BuildContext context) async {
-    final result = await showStartDateSheet(context: context, plant: plant);
-    if (result == null || !context.mounted) return;
-
-    await store.startPlant(
-      plantId: plant.id,
-      startedAt: result.startedAt,
-      stage: result.stage,
-      customName: result.customName,
-      seedGrams: result.seedGrams,
+    final added = await addPlantToGarden(
+      context: context,
+      plant: plant,
+      store: store,
     );
-    if (!context.mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${result.customName} · старт ${formatStartDate(result.startedAt)} — в Моей зелени',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
-    Navigator.of(context).pop();
+    if (added && context.mounted) Navigator.of(context).pop();
   }
 
   Future<void> _advance(BuildContext context) async {
@@ -50,7 +35,7 @@ class PlantDetailScreen extends StatelessWidget {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
-          completes ? 'Собрано — убрано из Моей зелени' : 'Этап обновлён',
+          completes ? 'Собрано — убрано с Моей грядки' : 'Этап обновлён',
         ),
         behavior: SnackBarBehavior.floating,
       ),
@@ -118,7 +103,7 @@ class PlantDetailScreen extends StatelessWidget {
                       ),
                     ),
                     icon: const Icon(Icons.add_rounded),
-                    label: const Text('Выращивать'),
+                    label: const Text('Добавить на грядку'),
                   ),
                 ),
               ],

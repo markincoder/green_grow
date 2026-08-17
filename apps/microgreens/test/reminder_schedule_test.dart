@@ -128,7 +128,7 @@ void main() {
       expect(items, hasLength(1));
       expect(items.single.done, isTrue);
       expect(items.single.key, key);
-      expect(items.single.text, contains('сегодня'));
+      expect(items.single.text, contains('Пора на свет'));
 
       final digest = ReminderService.buildDailyDigestBody(
         plants: plants,
