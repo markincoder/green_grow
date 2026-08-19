@@ -11,11 +11,13 @@ class PlantDetailScreen extends StatelessWidget {
     required this.plant,
     required this.store,
     this.gardenPlant,
+    this.onPlantAdded,
   });
 
   final Plant plant;
   final GardenStore store;
   final GardenPlant? gardenPlant;
+  final VoidCallback? onPlantAdded;
 
   Future<void> _start(BuildContext context) async {
     final added = await addPlantToGarden(
@@ -23,7 +25,10 @@ class PlantDetailScreen extends StatelessWidget {
       plant: plant,
       store: store,
     );
-    if (added && context.mounted) Navigator.of(context).pop();
+    if (added && context.mounted) {
+      Navigator.of(context).pop();
+      onPlantAdded?.call();
+    }
   }
 
   Future<void> _advance(BuildContext context) async {
@@ -127,7 +132,7 @@ class PlantDetailScreen extends StatelessWidget {
                         gp.statusLine(plant, now),
                         style:
                             Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: gp.completesNext(plant)
+                                  color: gp.isStatusActionDueToday(plant, now)
                                       ? AppColors.sun
                                       : AppColors.muted,
                                   fontWeight: FontWeight.w600,
@@ -148,11 +153,9 @@ class PlantDetailScreen extends StatelessWidget {
                         width: double.infinity,
                         child: FilledButton.icon(
                           onPressed: () => _advance(context),
-                          icon: Icon(
-                            gp.completesNext(plant)
-                                ? Icons.content_cut_rounded
-                                : Icons.arrow_forward_rounded,
-                          ),
+                          icon: gp.completesNext(plant)
+                              ? const Icon(Icons.content_cut_rounded)
+                              : const SizedBox.shrink(),
                           label: Text(gp.nextActionLabel(plant)),
                         ),
                       ),

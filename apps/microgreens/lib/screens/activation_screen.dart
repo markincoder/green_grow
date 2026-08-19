@@ -33,7 +33,10 @@ class ActivationScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   Text(subtitle, style: Theme.of(context).textTheme.bodyMedium),
                   const SizedBox(height: 22),
-                  TrialAccessCard(access: access),
+                  TrialAccessCard(
+                    access: access,
+                    activateLabel: 'Активировать код доступа',
+                  ),
                 ],
               ),
             ),

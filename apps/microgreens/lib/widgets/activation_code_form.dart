@@ -25,6 +25,13 @@ String formatRuAccessDate(DateTime utc) {
   return '${local.day} ${months[local.month - 1]} ${local.year}';
 }
 
+String formatAccessDateNumeric(DateTime utc) {
+  final local = utc.toLocal();
+  final day = local.day.toString().padLeft(2, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  return '$day.$month.${local.year}';
+}
+
 Future<void> showActivationSheet(BuildContext context, AccessStore access) {
   return showModalBottomSheet<void>(
     context: context,
@@ -73,12 +80,12 @@ class _ActivationSheet extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Text(
-                'Активировать доступ',
+                'Активировать код доступа',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 6),
               Text(
-                'Введите почту, на которую оформляли код, и сам код.',
+                'Введите email, на который оформляли код доступа, и сам код',
                 style: Theme.of(context).textTheme.bodyMedium,
               ),
               const SizedBox(height: 18),
@@ -277,22 +284,17 @@ class _ActivationCodeFormState extends State<ActivationCodeForm> {
             color: AppColors.forest,
           ),
           textAlign: TextAlign.center,
-          decoration: _decoration(
-            hint: 'Код активации',
-            prefix: const SizedBox(width: 48),
-            suffix: IconButton(
-              tooltip: 'Вставить из буфера',
-              onPressed: _busy ? null : _pasteCode,
-              icon: const Icon(
-                Icons.content_paste_rounded,
-                color: AppColors.meadow,
-              ),
-            ),
-          ),
+          decoration: _decoration(hint: 'Код активации'),
           onSubmitted: (_) => _submit(),
           onChanged: (_) {
             if (_error != null) setState(() => _error = null);
           },
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton.icon(
+          onPressed: _busy ? null : _pasteCode,
+          icon: const Icon(Icons.content_paste_rounded, size: 18),
+          label: const Text('Вставить код'),
         ),
         if (_error != null) ...[
           const SizedBox(height: 8),

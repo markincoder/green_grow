@@ -15,6 +15,8 @@ import 'state/access_store.dart';
 import 'state/garden_store.dart';
 import 'state/settings_store.dart';
 import 'theme/app_theme.dart';
+import 'widgets/activation_code_form.dart';
+import 'widgets/app_update_dialog.dart';
 import 'widgets/notification_permission_dialog.dart';
 
 Future<void> main() async {
@@ -42,6 +44,7 @@ class _GreenGrowAppState extends State<GreenGrowApp>
   final GardenStore _store = GardenStore();
   final SettingsStore _settings = SettingsStore();
   final AccessStore _access = AccessStore();
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   static const _deviceChannel = MethodChannel('com.greengrow.green_grow/device');
 
   @override
@@ -62,6 +65,7 @@ class _GreenGrowAppState extends State<GreenGrowApp>
 
   Future<void> _bootstrap() async {
     await Future.wait([_store.load(), _settings.load(), _access.load()]);
+    _showStartupDialogs();
     if (kIsWeb) {
       WebPushService.onNotifyGranted(_onWebNotifyGranted);
       if (_access.unlocked && WebPushService.permissionGranted) {
@@ -72,6 +76,24 @@ class _GreenGrowAppState extends State<GreenGrowApp>
       _syncReminders();
       if (kIsWeb && _access.unlocked && WebPushService.permissionGranted) {
         _onWebNotifyGranted();
+      }
+    });
+  }
+
+  void _showStartupDialogs() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (_access.consumeUpdateOffer()) {
+        final updateContext = _navigatorKey.currentContext;
+        if (updateContext == null || !updateContext.mounted) return;
+        await showAppUpdateDialog(updateContext, _access);
+      }
+      if (!mounted) return;
+      if (_access.consumeStartupActivationOffer()) {
+        final activationContext = _navigatorKey.currentContext;
+        if (activationContext == null || !activationContext.mounted) return;
+        await showActivationSheet(activationContext, _access);
       }
     });
   }
@@ -98,7 +120,6 @@ class _GreenGrowAppState extends State<GreenGrowApp>
       plants: _store.plants,
       reminderTime: _settings.reminderTime,
       enabled: _settings.enabled,
-      soakReminderHours: _settings.soakReminderHours,
       dismissedKeys: _settings.dismissedReminderKeys,
     );
   }
@@ -156,6 +177,7 @@ class _GreenGrowAppState extends State<GreenGrowApp>
           );
         }
         return MaterialApp(
+          navigatorKey: _navigatorKey,
           title: 'Микрозелень',
           debugShowCheckedModeBanner: false,
           theme: buildAppTheme(),
@@ -191,6 +213,17 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+  int _returnIndex = 0;
+
+  void _openCatalogRememberReturn() {
+    _returnIndex = _index;
+    setState(() => _index = 2);
+  }
+
+  void _goToGarden() {
+    if (!mounted) return;
+    setState(() => _index = 1);
+  }
 
   @override
   void initState() {
@@ -219,13 +252,22 @@ class _MainShellState extends State<MainShell> {
         store: widget.store,
         settings: widget.settings,
         access: widget.access,
-        onAddPlant: () => setState(() => _index = 2),
+        onAddPlant: _openCatalogRememberReturn,
       ),
       GardenScreen(
         store: widget.store,
-        onAddPlant: () => setState(() => _index = 2),
+        onAddPlant: _openCatalogRememberReturn,
       ),
-      CatalogScreen(store: widget.store),
+      CatalogScreen(
+        store: widget.store,
+        onListPlantAdded: () {
+          // «Выращивать» с Главной / Моей грядки — после Начать в Моя грядка.
+          // Добавление из списка Базы знаний — остаёмся здесь.
+          if (_returnIndex == 2) return;
+          _goToGarden();
+        },
+        onDetailPlantAdded: _goToGarden,
+      ),
       const ContactsScreen(),
     ];
 
@@ -241,7 +283,12 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
-        onDestinationSelected: (value) => setState(() => _index = value),
+        onDestinationSelected: (value) {
+          setState(() {
+            _index = value;
+            _returnIndex = value;
+          });
+        },
         backgroundColor: Colors.white,
         indicatorColor: AppColors.mist,
         destinations: const [

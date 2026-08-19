@@ -92,7 +92,7 @@ Flutter и PWA ходят на те же URL (`/push/api/vapid-public-key`, `sub
 | API | `https://agronizer.ru/push/` |
 | VAPID | `/data/vapid.json` |
 | Подписки | `/data/subscriptions.json`, `/data/schedules.json` |
-| Пользователи OAuth | `/data/users.json` |
+| Пользователи | таблица `users` в SQLite/MySQL |
 | Коды доступа | `/data/access.sqlite` |
 | Клик по push | `url` из расписания, иначе `DEFAULT_APP_URL` |
 
@@ -256,7 +256,7 @@ docker compose build agronizer
 docker compose up -d agronizer
 ```
 
-SQLite, VAPID, подписки и `users.json` лежат в named volume `agronizer_data` (`/data` в контейнере).
+SQLite, VAPID, подписки лежат в named volume `agronizer_data` (`/data` в контейнере).
 `docker compose build` / `up -d` том не пересоздаёт.
 
 Если раньше данные были в bind `agronizer/platform/push/data`, один раз скопируйте их в том, иначе контейнер стартует с пустой БД:
@@ -407,6 +407,50 @@ curl -s https://agronizer.ru/api/config
 
 ---
 
+## SMTP Яндекса
+
+Сброс пароля (`POST /api/auth/password/forgot`) отправляет временный пароль через SMTP.
+На проде сервис `agronizer` читает `platform/push/.env` через `env_file`.
+
+Минимальная конфигурация:
+
+```env
+SMTP_HOST=smtp.yandex.ru
+SMTP_PORT=587
+SMTP_USER=agronizer@yandex.ru
+SMTP_PASS=пароль_приложения_яндекса
+SMTP_FROM=agronizer@yandex.ru
+SMTP_TLS=1
+```
+
+Важно:
+
+1. Для `SMTP_PASS` используйте **пароль приложения**, а не обычный пароль от почты.
+2. `SMTP_USER` и `SMTP_FROM` лучше держать одинаковыми: адрес того же ящика Яндекса.
+3. В настройках ящика Яндекса включите доступ почтовых клиентов:
+   `Почта` → `Все настройки` → `Почтовые программы` → включить **IMAP**.
+   POP3 не нужен.
+4. После правки `.env` пересоздайте контейнер:
+
+   ```bash
+   docker compose up -d agronizer
+   ```
+
+Диагностика:
+
+- проверить, какие SMTP-переменные реально видит контейнер:
+
+  ```bash
+  docker compose exec agronizer sh -lc 'env | grep "^SMTP_"'
+  ```
+
+- если в логах видно
+  `535 5.7.8 Error: authentication failed: This user does not have access rights to this service`,
+  это обычно значит, что для ящика не включён доступ почтовых клиентов/IMAP
+  или пароль приложения создан не для того ящика, который указан в `SMTP_USER`.
+
+---
+
 ## База SQLite (коды доступа)
 
 Это **не триал**. Триал хранится только на устройстве. В SQLite — коды после оплаты и записи платежей.
@@ -467,7 +511,7 @@ docker run --rm -v agronizer_data:/data -v /tmp/access.sqlite:/in/access.sqlite:
 docker compose start agronizer
 ```
 
-Не копируйте обратно весь `/data`: рядом лежат `vapid.json`, `subscriptions.json`, `schedules.json`, `users.json`.
+Не копируйте обратно весь `/data`: рядом лежат `vapid.json`, `subscriptions.json`, `schedules.json`.
 
 ### Почистить базу на сервере
 

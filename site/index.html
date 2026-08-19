@@ -439,6 +439,24 @@
       background: rgba(255, 255, 255, 0.12);
     }
 
+    .site-auth__btn[hidden] {
+      display: none !important;
+    }
+
+    .site-auth__btn--password {
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.48rem 0.75rem;
+    }
+
+    @media (max-width: 640px) {
+      .site-auth {
+        flex-wrap: wrap;
+        max-width: calc(100vw - 1.5rem);
+        justify-content: flex-end;
+      }
+    }
+
     .auth-overlay {
       display: none;
       position: fixed;
@@ -562,6 +580,143 @@
       text-align: center;
       font-size: 0.78rem;
       color: var(--muted);
+    }
+
+    .login-sep {
+      margin: 0.9rem 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .login-alt-btn {
+      width: 100%;
+      border: 1px solid rgba(27, 67, 50, 0.18);
+      border-radius: 0.85rem;
+      padding: 0.8rem 0.9rem;
+      background: #fff;
+      color: var(--forest);
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .auth-tabs {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.45rem;
+      margin-bottom: 0.9rem;
+      background: rgba(27, 67, 50, 0.06);
+      padding: 0.3rem;
+      border-radius: 0.9rem;
+    }
+
+    .auth-tab {
+      border: none;
+      border-radius: 0.68rem;
+      padding: 0.45rem 0.5rem;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .auth-tab.is-active {
+      background: #fff;
+      color: var(--forest);
+      box-shadow: 0 2px 6px rgba(27, 67, 50, 0.12);
+    }
+
+    .auth-form[hidden] {
+      display: none !important;
+    }
+
+    .auth-field {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+      margin-bottom: 0.65rem;
+    }
+
+    .auth-field label {
+      font-size: 0.82rem;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    .auth-field input {
+      width: 100%;
+      border: 1px solid rgba(27, 67, 50, 0.18);
+      border-radius: 0.75rem;
+      padding: 0.62rem 0.7rem;
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+
+    .auth-field input:focus-visible {
+      outline: 2px solid rgba(64, 145, 108, 0.45);
+      outline-offset: 1px;
+      border-color: var(--meadow);
+    }
+
+    .auth-inline {
+      display: flex;
+      gap: 0.4rem;
+      align-items: stretch;
+    }
+
+    .auth-inline input {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .auth-small-btn {
+      flex: 0 0 auto;
+      width: auto;
+      border: 1px solid rgba(27, 67, 50, 0.18);
+      border-radius: 0.75rem;
+      padding: 0.62rem 0.55rem;
+      background: #fff;
+      color: var(--forest);
+      font-size: 0.82rem;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .auth-small-btn[disabled] {
+      opacity: 0.65;
+      cursor: default;
+    }
+
+    .auth-submit {
+      width: 100%;
+      margin-top: 0.45rem;
+      border: none;
+      border-radius: 0.8rem;
+      padding: 0.76rem 0.9rem;
+      background: #4f46e5;
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .auth-link-btn {
+      border: none;
+      background: transparent;
+      color: #4f46e5;
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 0.16em;
+      cursor: pointer;
+      padding: 0;
+      margin-top: 0.65rem;
+      font-size: 0.85rem;
+    }
+
+    .auth-link-btn--back {
+      display: block;
+      text-align: left;
+      margin: 0 2.4rem 0.75rem 0;
     }
 
     .terms-docs {
@@ -790,6 +945,7 @@
 </head>
 <body>
   <div class="site-auth">
+    <button type="button" class="site-auth__btn site-auth__btn--password" id="btn-change-password" hidden>Сменить пароль</button>
     <div class="site-auth__who" id="auth-who" hidden>
       <span class="site-auth__avatar" id="auth-avatar" aria-hidden="true"></span>
       <span class="site-auth__name" id="auth-name"></span>
@@ -811,7 +967,7 @@
       <p class="hero__kicker">Домашний сад</p>
       <h1 class="brand">Агронайзер</h1>
       <p class="hero__wip">Сайт в разработке</p>
-      <p class="hero__lead">Приложения, которые помогают выращивать зелень дома — спокойно и без лишней сложности.</p>
+      <p class="hero__lead">Легкость в делах, порядок в увлечениях</p>
       <article class="app-card" id="app">
         <div class="app__head">
           <img class="app__icon" src="/apps/microgreens/icons/Icon-192.png" alt="" width="48" height="48" />
@@ -914,7 +1070,7 @@
       <button type="button" class="login-close" id="auth-close" aria-label="Закрыть">×</button>
       <div id="view-login">
         <h2 id="auth-title">Войдите за минуту</h2>
-        <p class="login-lead" id="login-lead">Через Яндекс или VK ID — пароль придумывать не нужно.</p>
+        <p class="login-lead" id="login-lead">Войдите через Яндекс или VK ID — или по логину и паролю.</p>
         <p id="oauth-err" class="login-banner-err" hidden></p>
         <p id="no-oauth-hint" class="login-banner-err" hidden>Вход временно недоступен. Попробуйте позже.</p>
         <div id="oauth-row" class="oauth-buttons" hidden>
@@ -927,7 +1083,74 @@
             <span>Продолжить с VK ID</span>
           </a>
         </div>
-        <p class="login-privacy">Мы не видим ваш пароль — вход идёт через Яндекс или VK.</p>
+        <p class="login-sep">или</p>
+        <button type="button" class="login-alt-btn" id="btn-password-auth">Вход по логину и паролю</button>
+        <p class="login-privacy">Для входа по логину используйте email.</p>
+      </div>
+      <div id="view-password" hidden>
+        <button type="button" class="auth-link-btn auth-link-btn--back" id="btn-back-oauth">← Войти через Яндекс или VK</button>
+        <h2 id="password-title">Вход по email</h2>
+        <p id="password-msg" class="login-banner-err" hidden></p>
+        <div class="auth-tabs">
+          <button type="button" class="auth-tab is-active" data-auth-tab="login" id="tab-login">Вход</button>
+          <button type="button" class="auth-tab" data-auth-tab="register" id="tab-register">Регистрация</button>
+        </div>
+        <form id="form-login" class="auth-form">
+          <div class="auth-field">
+            <label for="login-email">Логин (email)</label>
+            <input id="login-email" type="email" autocomplete="email" required />
+          </div>
+          <div class="auth-field">
+            <label for="login-password">Пароль</label>
+            <input id="login-password" type="password" autocomplete="current-password" required />
+          </div>
+          <button type="submit" class="auth-submit">Войти</button>
+          <button type="button" class="auth-link-btn" id="btn-forgot-password">Забыли пароль?</button>
+        </form>
+        <form id="form-register" class="auth-form" hidden>
+          <div class="auth-field">
+            <label for="register-email">Логин (email)</label>
+            <div class="auth-inline">
+              <input id="register-email" type="email" autocomplete="email" required />
+              <button type="button" class="auth-small-btn" id="btn-send-register-code">Подтвердить</button>
+            </div>
+          </div>
+          <div class="auth-field">
+            <label for="register-code">Код подтверждения</label>
+            <div class="auth-inline">
+              <input id="register-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+              <button type="button" class="auth-small-btn" id="btn-check-register-code">Проверить</button>
+            </div>
+          </div>
+          <div class="auth-field">
+            <label for="register-password">Пароль</label>
+            <input id="register-password" type="password" autocomplete="new-password" required />
+          </div>
+          <div class="auth-field">
+            <label for="register-password2">Повтор пароля</label>
+            <input id="register-password2" type="password" autocomplete="new-password" required />
+          </div>
+          <button type="submit" class="auth-submit">Зарегистрироваться</button>
+        </form>
+      </div>
+      <div id="view-change" hidden>
+        <h2 id="change-title">Смена пароля</h2>
+        <p id="change-msg" class="login-banner-err" hidden></p>
+        <form id="form-change" class="auth-form">
+          <div class="auth-field">
+            <label for="change-current-password">Текущий или временный пароль</label>
+            <input id="change-current-password" type="password" autocomplete="current-password" required />
+          </div>
+          <div class="auth-field">
+            <label for="change-new-password">Новый пароль</label>
+            <input id="change-new-password" type="password" autocomplete="new-password" required />
+          </div>
+          <div class="auth-field">
+            <label for="change-new-password2">Повтор нового пароля</label>
+            <input id="change-new-password2" type="password" autocomplete="new-password" required />
+          </div>
+          <button type="submit" class="auth-submit">Изменить пароль</button>
+        </form>
       </div>
       <div id="view-terms" hidden>
         <h2 id="terms-title">Условия использования</h2>
@@ -958,21 +1181,39 @@
 
     const overlay = document.getElementById("auth-overlay");
     const viewLogin = document.getElementById("view-login");
+    const viewPassword = document.getElementById("view-password");
+    const viewChange = document.getElementById("view-change");
     const viewTerms = document.getElementById("view-terms");
     const loginBox = document.getElementById("login-box");
     const authClose = document.getElementById("auth-close");
     const termsCheck = document.getElementById("terms-check");
     const btnTerms = document.getElementById("btn-terms");
     const btnAuth = document.getElementById("btn-auth");
+    const btnChangePassword = document.getElementById("btn-change-password");
     const authWho = document.getElementById("auth-who");
     const authName = document.getElementById("auth-name");
     const authAvatar = document.getElementById("auth-avatar");
     const guestCta = document.getElementById("guest-cta");
     const hello = document.getElementById("hello");
     const oauthNextHome = encodeURIComponent("/#app");
+    const btnPasswordAuth = document.getElementById("btn-password-auth");
+    const btnBackOauth = document.getElementById("btn-back-oauth");
+    const passwordMsg = document.getElementById("password-msg");
+    const changeMsg = document.getElementById("change-msg");
+    const tabLogin = document.getElementById("tab-login");
+    const tabRegister = document.getElementById("tab-register");
+    const formLogin = document.getElementById("form-login");
+    const formRegister = document.getElementById("form-register");
+    const formChange = document.getElementById("form-change");
+    const btnForgotPassword = document.getElementById("btn-forgot-password");
+    const btnSendRegisterCode = document.getElementById("btn-send-register-code");
+    const btnCheckRegisterCode = document.getElementById("btn-check-register-code");
     let lastFocus = null;
     let signedIn = false;
     let termsRequired = false;
+    let passwordTab = "login";
+    let registerEmailVerified = false;
+    let registerVerifiedEmail = "";
 
     function firstName(me) {
       const raw = (me && (me.name || me.email) || "").trim();
@@ -1060,6 +1301,9 @@
       signedIn = Boolean(me);
       btnAuth.textContent = signedIn ? "Выйти" : "Войти";
       btnAuth.setAttribute("aria-label", signedIn ? "Выйти" : "Войти");
+      if (btnChangePassword) {
+        btnChangePassword.hidden = !(signedIn && me && me.hasPassword);
+      }
       const termsOk = Boolean(me && me.termsAccepted);
       guestCta.hidden = signedIn;
       document.getElementById("download-links").hidden = !signedIn || !termsOk;
@@ -1095,7 +1339,7 @@
     }
 
     function focusables() {
-      return [...overlay.querySelectorAll("a[href], button:not([disabled])")].filter(
+      return [...overlay.querySelectorAll("a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled])")].filter(
         (el) => !el.hidden && el.offsetParent !== null
       );
     }
@@ -1120,19 +1364,105 @@
     function showLogin() {
       termsRequired = false;
       viewLogin.hidden = false;
+      viewPassword.hidden = true;
+      if (viewChange) viewChange.hidden = true;
       viewTerms.hidden = true;
       authClose.hidden = false;
       loginBox.classList.remove("login-box--terms");
       overlay.setAttribute("aria-labelledby", "auth-title");
       document.getElementById("login-lead").textContent =
-        "Через Яндекс или VK ID — пароль придумывать не нужно.";
+        "Войдите через Яндекс или VK ID — или по логину и паролю.";
       setOauthNext(oauthNextHome);
       openOverlay();
     }
 
+    function setFormMsg(el, text, isError = true) {
+      if (!el) return;
+      if (!text) {
+        el.hidden = true;
+        el.textContent = "";
+        return;
+      }
+      el.hidden = false;
+      el.textContent = text;
+      el.style.background = isError ? "rgba(155, 34, 38, 0.1)" : "rgba(64, 145, 108, 0.16)";
+      el.style.color = isError ? "#9b2226" : "#1b4332";
+    }
+
+    function setPasswordMsg(text, isError = true) {
+      setFormMsg(passwordMsg, text, isError);
+    }
+
+    function setChangeMsg(text, isError = true) {
+      setFormMsg(changeMsg, text, isError);
+    }
+
+    function resetRegisterVerification(clearCode = false) {
+      registerEmailVerified = false;
+      registerVerifiedEmail = "";
+      if (clearCode) {
+        const input = document.getElementById("register-code");
+        if (input) input.value = "";
+      }
+    }
+
+    function activatePasswordTab(nextTab) {
+      passwordTab = nextTab;
+      const tabs = [
+        [tabLogin, "login", formLogin],
+        [tabRegister, "register", formRegister],
+      ];
+      for (const [tabBtn, key, form] of tabs) {
+        if (!tabBtn || !form) continue;
+        const active = key === nextTab;
+        tabBtn.classList.toggle("is-active", active);
+        form.hidden = !active;
+      }
+      if (nextTab === "register") {
+        resetRegisterVerification(false);
+      }
+      setPasswordMsg("");
+    }
+
+    function showPasswordAuth(tab = "login") {
+      termsRequired = false;
+      viewLogin.hidden = true;
+      viewPassword.hidden = false;
+      if (viewChange) viewChange.hidden = true;
+      viewTerms.hidden = true;
+      authClose.hidden = false;
+      loginBox.classList.remove("login-box--terms");
+      overlay.setAttribute("aria-labelledby", "password-title");
+      activatePasswordTab(tab);
+      openOverlay();
+    }
+
+    function showChangePassword() {
+      if (!signedIn) return;
+      termsRequired = false;
+      viewLogin.hidden = true;
+      viewPassword.hidden = true;
+      if (viewChange) viewChange.hidden = false;
+      viewTerms.hidden = true;
+      authClose.hidden = false;
+      loginBox.classList.remove("login-box--terms");
+      overlay.setAttribute("aria-labelledby", "change-title");
+      setChangeMsg("");
+      const current = document.getElementById("change-current-password");
+      const next = document.getElementById("change-new-password");
+      const next2 = document.getElementById("change-new-password2");
+      if (current) current.value = "";
+      if (next) next.value = "";
+      if (next2) next2.value = "";
+      openOverlay();
+    }
+
     function showTerms() {
+      if (!signedIn) return;
       termsRequired = true;
       viewLogin.hidden = true;
+      viewPassword.hidden = true;
+      if (viewChange) viewChange.hidden = true;
       viewTerms.hidden = false;
       authClose.hidden = true;
       loginBox.classList.add("login-box--terms");
@@ -1146,6 +1476,8 @@
       termsRequired = false;
       viewTerms.hidden = true;
       viewLogin.hidden = false;
+      viewPassword.hidden = true;
+      if (viewChange) viewChange.hidden = true;
       authClose.hidden = false;
       loginBox.classList.remove("login-box--terms");
       overlay.setAttribute("aria-labelledby", "auth-title");
@@ -1239,16 +1571,259 @@
       showLogin();
     });
 
-    document.getElementById("auth-close").addEventListener("click", closeOverlay);
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) closeOverlay();
-    });
-    document.addEventListener("keydown", (e) => {
-      if (!overlay.classList.contains("is-open")) return;
-      if (e.key === "Escape") {
-        closeOverlay();
+    if (btnPasswordAuth) {
+      btnPasswordAuth.addEventListener("click", () => showPasswordAuth("login"));
+    }
+    if (btnBackOauth) {
+      btnBackOauth.addEventListener("click", () => showLogin());
+    }
+
+    if (tabLogin) tabLogin.addEventListener("click", () => activatePasswordTab("login"));
+    if (tabRegister) tabRegister.addEventListener("click", () => activatePasswordTab("register"));
+    if (btnChangePassword) {
+      btnChangePassword.addEventListener("click", () => showChangePassword());
+    }
+
+    const registerEmailInput = document.getElementById("register-email");
+    const registerCodeInput = document.getElementById("register-code");
+    if (registerEmailInput) {
+      registerEmailInput.addEventListener("input", () => {
+        const current = String(registerEmailInput.value || "").trim().toLowerCase();
+        if (current !== registerVerifiedEmail) {
+          resetRegisterVerification(false);
+        }
+      });
+    }
+    if (registerCodeInput) {
+      registerCodeInput.addEventListener("input", () => {
+        const current = String(registerCodeInput.value || "").replace(/\D/g, "");
+        if (registerCodeInput.value !== current) registerCodeInput.value = current;
+        if (registerEmailVerified) {
+          registerEmailVerified = false;
+          registerVerifiedEmail = "";
+        }
+      });
+    }
+
+    if (btnSendRegisterCode) {
+      btnSendRegisterCode.addEventListener("click", async () => {
+        const email = String(document.getElementById("register-email").value || "").trim();
+        if (!email) {
+          setPasswordMsg("Сначала введите email.");
+          return;
+        }
+        btnSendRegisterCode.disabled = true;
+        resetRegisterVerification(true);
+        try {
+          const res = await api("/api/auth/password/send-code", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.ok !== true) {
+            if (data.error === "exists") {
+              setPasswordMsg("Пользователь с таким email уже существует.");
+            } else if (data.error === "email_unavailable") {
+              setPasswordMsg("Не удалось отправить код на email. Попробуйте позже.");
+            } else {
+              setPasswordMsg("Не удалось отправить код подтверждения.");
+            }
+            return;
+          }
+          setPasswordMsg("Код подтверждения отправлен на email.", false);
+        } catch {
+          setPasswordMsg("Сервер недоступен. Попробуйте позже.");
+        } finally {
+          btnSendRegisterCode.disabled = false;
+        }
+      });
+    }
+
+    if (btnCheckRegisterCode) {
+      btnCheckRegisterCode.addEventListener("click", async () => {
+        const email = String(document.getElementById("register-email").value || "").trim();
+        const code = String(document.getElementById("register-code").value || "").trim();
+        if (!email) {
+          setPasswordMsg("Сначала введите email.");
+          return;
+        }
+        if (!code) {
+          setPasswordMsg("Введите код подтверждения.");
+          return;
+        }
+        btnCheckRegisterCode.disabled = true;
+        try {
+          const res = await api("/api/auth/password/check-code", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, code }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || data.ok !== true) {
+            registerEmailVerified = false;
+            registerVerifiedEmail = "";
+            if (data.error === "code_invalid") {
+              setPasswordMsg("Код подтверждения не совпадает.");
+            } else if (data.error === "code_expired") {
+              setPasswordMsg("Код подтверждения истёк. Запросите новый.");
+            } else if (data.error === "code_missing") {
+              setPasswordMsg("Сначала нажмите «Подтвердить» и получите код.");
+            } else {
+              setPasswordMsg("Не удалось проверить код.");
+            }
+            return;
+          }
+          registerEmailVerified = true;
+          registerVerifiedEmail = email.trim().toLowerCase();
+          setPasswordMsg("Email подтверждён. Теперь можно зарегистрироваться.", false);
+        } catch {
+          setPasswordMsg("Сервер недоступен. Попробуйте позже.");
+        } finally {
+          btnCheckRegisterCode.disabled = false;
+        }
+      });
+    }
+
+    formLogin.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = String(document.getElementById("login-email").value || "").trim();
+      const password = String(document.getElementById("login-password").value || "");
+      if (!email || !password) {
+        setPasswordMsg("Введите email и пароль.");
         return;
       }
+      try {
+        const res = await api("/api/auth/password/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok !== true) {
+          setPasswordMsg("Неверный email или пароль.");
+          return;
+        }
+        const me = await currentUser();
+        setAuthButton(me);
+        closeOverlay();
+      } catch {
+        setPasswordMsg("Сервер недоступен. Попробуйте позже.");
+      }
+    });
+
+    formRegister.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = String(document.getElementById("register-email").value || "").trim();
+      const code = String(document.getElementById("register-code").value || "").trim();
+      const password = String(document.getElementById("register-password").value || "");
+      const password2 = String(document.getElementById("register-password2").value || "");
+      if (!email) {
+        setPasswordMsg("Введите email.");
+        return;
+      }
+      if (!code) {
+        setPasswordMsg("Введите код подтверждения email.");
+        return;
+      }
+      if (!registerEmailVerified || registerVerifiedEmail !== email.trim().toLowerCase()) {
+        setPasswordMsg("Сначала подтвердите email кодом.");
+        return;
+      }
+      if (password.length < 8) {
+        setPasswordMsg("Пароль должен быть не короче 8 символов.");
+        return;
+      }
+      if (password !== password2) {
+        setPasswordMsg("Пароли не совпадают.");
+        return;
+      }
+      try {
+        const res = await api("/api/auth/password/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok !== true) {
+          if (data.error === "exists") {
+            setPasswordMsg("Пользователь с таким email уже существует.");
+          } else if (data.error === "email_not_verified") {
+            registerEmailVerified = false;
+            registerVerifiedEmail = "";
+            setPasswordMsg("Email не подтверждён. Проверьте код ещё раз.");
+          } else {
+            setPasswordMsg("Не удалось зарегистрироваться. Проверьте данные.");
+          }
+          return;
+        }
+        const me = await currentUser();
+        setAuthButton(me);
+        closeOverlay();
+      } catch {
+        setPasswordMsg("Сервер недоступен. Попробуйте позже.");
+      }
+    });
+
+    formChange.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const currentPassword = String(document.getElementById("change-current-password").value || "");
+      const newPassword = String(document.getElementById("change-new-password").value || "");
+      const newPassword2 = String(document.getElementById("change-new-password2").value || "");
+      if (newPassword.length < 8) {
+        setChangeMsg("Новый пароль должен быть не короче 8 символов.");
+        return;
+      }
+      if (newPassword !== newPassword2) {
+        setChangeMsg("Повтор нового пароля не совпадает.");
+        return;
+      }
+      try {
+        const res = await api("/api/auth/password/change", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ currentPassword, newPassword }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok !== true) {
+          setChangeMsg("Не удалось сменить пароль. Проверьте текущий пароль.");
+          return;
+        }
+        const me = await currentUser();
+        setAuthButton(me);
+        setChangeMsg("Пароль успешно изменён.", false);
+        setTimeout(() => closeOverlay(), 700);
+      } catch {
+        setChangeMsg("Сервер недоступен. Попробуйте позже.");
+      }
+    });
+
+    btnForgotPassword.addEventListener("click", async () => {
+      const email = String(document.getElementById("login-email").value || "").trim();
+      if (!email) {
+        setPasswordMsg("Введите email и нажмите «Забыли пароль?» ещё раз.");
+        return;
+      }
+      try {
+        const res = await api("/api/auth/password/forgot", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok !== true) {
+          setPasswordMsg("Не удалось отправить временный пароль. Попробуйте позже.");
+          return;
+        }
+        setPasswordMsg("Временный пароль отправлен на email. Войдите, затем нажмите «Сменить пароль».", false);
+      } catch {
+        setPasswordMsg("Сервер недоступен. Попробуйте позже.");
+      }
+    });
+
+    document.getElementById("auth-close").addEventListener("click", closeOverlay);
+    document.addEventListener("keydown", (e) => {
+      if (!overlay.classList.contains("is-open")) return;
       if (e.key !== "Tab") return;
       const items = focusables();
       if (!items.length) return;
@@ -1330,8 +1905,11 @@
 
       if (qp.get("download") === "1") {
         if (!me) showLogin();
+      }
+      if (qp.get("download") === "1" || qp.get("terms") === "1") {
         const u = new URL(window.location.href);
         u.searchParams.delete("download");
+        u.searchParams.delete("terms");
         history.replaceState({}, "", u.pathname + (u.searchParams.toString() ? "?" + u.searchParams : "") + u.hash);
       }
     })();

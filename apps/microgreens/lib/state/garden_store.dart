@@ -118,7 +118,7 @@ class GardenStore extends ChangeNotifier {
     required DueActionKind? kind,
     String? gardenId,
   }) async {
-    if (kind == null) {
+    if (kind == null || kind == DueActionKind.water) {
       await waterGrowingPlants();
       return;
     }

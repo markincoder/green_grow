@@ -8,11 +8,19 @@ class AccessConfig {
     required this.trialPeriod,
     required this.paidPeriod,
     required this.siteUrl,
+    this.appVersion = '',
+    this.appBuild = 0,
+    this.apkUrl = '',
+    this.pwaUrl = '',
   });
 
   final int trialPeriod;
   final int paidPeriod;
   final String siteUrl;
+  final String appVersion;
+  final int appBuild;
+  final String apkUrl;
+  final String pwaUrl;
 }
 
 class AccessActivateResult {
@@ -22,6 +30,18 @@ class AccessActivateResult {
   final String? error;
 
   bool get ok => expiresAt != null;
+}
+
+enum AccessCheckStatus { valid, expired, missing, unavailable }
+
+class AccessCheckResult {
+  const AccessCheckResult({
+    required this.status,
+    this.expiresAt,
+  });
+
+  final AccessCheckStatus status;
+  final DateTime? expiresAt;
 }
 
 class AccessApi {
@@ -69,10 +89,21 @@ class AccessApi {
     final days = data['trialPeriod'];
     final months = data['paidPeriod'];
     final site = data['siteUrl']?.toString().trim();
+    final appVersion = data['appVersion']?.toString().trim() ?? '';
+    final appBuildRaw = data['appBuild'];
+    final apk = data['apkUrl']?.toString().trim() ?? '';
+    final pwa = data['pwaUrl']?.toString().trim() ?? '';
     return AccessConfig(
       trialPeriod: days is num && days > 0 ? days.round() : defaultTrialPeriod,
-      paidPeriod: months is num && months > 0 ? months.round() : defaultPaidPeriod,
+      paidPeriod:
+          months is num && months > 0 ? months.round() : defaultPaidPeriod,
       siteUrl: (site != null && site.isNotEmpty) ? site : defaultSiteUrl,
+      appVersion: appVersion,
+      appBuild: appBuildRaw is num
+          ? appBuildRaw.round()
+          : int.tryParse('$appBuildRaw') ?? 0,
+      apkUrl: apk,
+      pwaUrl: pwa,
     );
   }
 
@@ -111,5 +142,55 @@ class AccessApi {
       return const AccessActivateResult._(error: 'invalid');
     }
     return AccessActivateResult._(expiresAt: expires.toUtc());
+  }
+
+  Future<AccessCheckResult> checkActivation(String code, String email) async {
+    final digits = code.replaceAll(RegExp(r'\D'), '');
+    final mail = email.trim();
+    try {
+      final res = await _client
+          .post(
+            Uri.parse('$baseUrl/api/access/activate'),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'code': digits,
+              'email': mail,
+              'slug': 'microgreens',
+            }),
+          )
+          .timeout(_timeout);
+      Map<String, dynamic> data = const {};
+      try {
+        final parsed = jsonDecode(res.body);
+        if (parsed is Map<String, dynamic>) data = parsed;
+      } catch (_) {}
+      final err = data['error']?.toString();
+      final raw = data['expiresAt']?.toString() ?? '';
+      final expires = DateTime.tryParse(raw)?.toUtc();
+      if (res.statusCode == 410 || err == 'expired') {
+        return AccessCheckResult(
+          status: AccessCheckStatus.expired,
+          expiresAt: expires,
+        );
+      }
+      if (res.statusCode >= 500) {
+        return const AccessCheckResult(status: AccessCheckStatus.unavailable);
+      }
+      if (res.statusCode >= 400 ||
+          err == 'mismatch' ||
+          err == 'invalid' ||
+          data['ok'] != true) {
+        return const AccessCheckResult(status: AccessCheckStatus.missing);
+      }
+      if (expires == null) {
+        return const AccessCheckResult(status: AccessCheckStatus.missing);
+      }
+      return AccessCheckResult(
+        status: AccessCheckStatus.valid,
+        expiresAt: expires,
+      );
+    } catch (_) {
+      return const AccessCheckResult(status: AccessCheckStatus.unavailable);
+    }
   }
 }

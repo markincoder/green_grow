@@ -8,6 +8,15 @@ import '../widgets/common_widgets.dart';
 class ContactsScreen extends StatelessWidget {
   const ContactsScreen({super.key});
 
+  static const _supportLinks = <_ContactLink>[
+    _ContactLink(
+      title: 'Почта',
+      subtitle: 'agronizer@yandex.ru',
+      url: 'mailto:agronizer@yandex.ru',
+      icon: Icons.mail_outline_rounded,
+    ),
+  ];
+
   static const _links = <_ContactLink>[
     _ContactLink(
       title: 'Телеграм',
@@ -60,28 +69,23 @@ class ContactsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Поддержка в соцсетях',
+                  'Каналы в соцсетях',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 20),
-                SoftPanel(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Column(
-                    children: [
-                      for (var i = 0; i < _links.length; i++) ...[
-                        if (i > 0)
-                          Divider(
-                            height: 1,
-                            indent: 72,
-                            color: AppColors.mist.withValues(alpha: 0.9),
-                          ),
-                        _ContactTile(
-                          link: _links[i],
-                          onTap: () => _open(context, _links[i].url),
-                        ),
-                      ],
-                    ],
-                  ),
+                _ContactList(
+                  links: _links,
+                  onOpen: (url) => _open(context, url),
+                ),
+                const SizedBox(height: 22),
+                Text(
+                  'Есть вопросы? Напишите нам',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 12),
+                _ContactList(
+                  links: _supportLinks,
+                  onOpen: (url) => _open(context, url),
                 ),
               ],
             ),
@@ -103,6 +107,36 @@ class ContactsScreen extends StatelessWidget {
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContactList extends StatelessWidget {
+  const _ContactList({required this.links, required this.onOpen});
+
+  final List<_ContactLink> links;
+  final ValueChanged<String> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    return SoftPanel(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        children: [
+          for (var i = 0; i < links.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                indent: 72,
+                color: AppColors.mist.withValues(alpha: 0.9),
+              ),
+            _ContactTile(
+              link: links[i],
+              onTap: () => onOpen(links[i].url),
+            ),
+          ],
         ],
       ),
     );

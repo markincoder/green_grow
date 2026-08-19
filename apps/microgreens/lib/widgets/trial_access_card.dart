@@ -6,9 +6,14 @@ import 'activation_code_form.dart';
 import 'common_widgets.dart';
 
 class TrialAccessCard extends StatelessWidget {
-  const TrialAccessCard({super.key, required this.access});
+  const TrialAccessCard({
+    super.key,
+    required this.access,
+    this.activateLabel = 'Продлить доступ',
+  });
 
   final AccessStore access;
+  final String activateLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -29,8 +34,8 @@ class TrialAccessCard extends StatelessWidget {
     } else if (access.trialEndsAt != null) {
       status = _StatusLine(
         icon: Icons.eco_rounded,
-        prefix: 'Пробная бесплатная версия до ',
-        date: formatRuAccessDate(access.trialEndsAt!),
+        prefix: 'Бесплатный доступ до ',
+        date: formatAccessDateNumeric(access.trialEndsAt!),
       );
     } else {
       status = null;
@@ -52,7 +57,7 @@ class TrialAccessCard extends StatelessWidget {
             OutlinedButton.icon(
               onPressed: () => showActivationSheet(context, access),
               icon: const Icon(Icons.key_rounded, size: 18),
-              label: const Text('Активировать доступ'),
+              label: Text(activateLabel),
             ),
           ],
         ],

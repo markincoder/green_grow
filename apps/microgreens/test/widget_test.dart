@@ -21,8 +21,8 @@ void main() {
     expect(find.text('Главная'), findsOneWidget);
     expect(find.text('База знаний'), findsOneWidget);
     expect(find.text('Выращивать'), findsOneWidget);
-    expect(find.textContaining('Пробная бесплатная версия до'), findsOneWidget);
-    expect(find.text('Активировать доступ'), findsOneWidget);
+    expect(find.textContaining('Бесплатный доступ до'), findsOneWidget);
+    expect(find.text('Продлить доступ'), findsOneWidget);
     expect(find.text('или введите код активации'), findsNothing);
   });
 
@@ -32,11 +32,17 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Активировать доступ'));
+    await tester.tap(find.text('Продлить доступ'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Активировать код доступа'), findsOneWidget);
+    expect(
+      find.text('Введите email, на который оформляли код доступа, и сам код'),
+      findsOneWidget,
+    );
     expect(find.text('email@example.com'), findsOneWidget);
     expect(find.text('Код активации'), findsOneWidget);
+    expect(find.text('Вставить код'), findsOneWidget);
     expect(find.textContaining('Код активации вы можете оформить на сайте'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Активировать'), findsOneWidget);
   });
@@ -52,8 +58,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Пробный период закончился'), findsOneWidget);
-    expect(find.textContaining('Пробная бесплатная версия до'), findsOneWidget);
-    expect(find.text('Активировать доступ'), findsOneWidget);
+    expect(find.textContaining('Бесплатный доступ до'), findsOneWidget);
+    expect(find.text('Активировать код доступа'), findsOneWidget);
     expect(find.text('Главная'), findsNothing);
   });
 
@@ -70,8 +76,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('Доступ активирован до'), findsOneWidget);
+    expect(find.textContaining('Бесплатный доступ до'), findsNothing);
     expect(find.textContaining('Пробная бесплатная версия до'), findsNothing);
     expect(find.text('Активировать доступ'), findsNothing);
+    expect(find.text('Продлить доступ'), findsNothing);
     expect(find.text('Главная'), findsOneWidget);
   });
 
@@ -89,7 +97,7 @@ void main() {
 
     expect(find.text('Срок доступа закончился'), findsOneWidget);
     expect(find.textContaining('Доступ действовал до'), findsOneWidget);
-    expect(find.text('Активировать доступ'), findsOneWidget);
+    expect(find.text('Активировать код доступа'), findsOneWidget);
     expect(find.textContaining('Доступ активирован до'), findsNothing);
     expect(find.text('Главная'), findsNothing);
   });

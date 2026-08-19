@@ -239,6 +239,11 @@ class Plant {
     return '$hours ${_hourWord(hours)}';
   }
 
+  static String elapsedHoursLabel(int hours) {
+    final n = hours < 0 ? 0 : hours;
+    return '$n ${_hourWord(n)}';
+  }
+
   static String _hoursOrDaysLabel(int hours) {
     if (hours >= 24 && hours % 24 == 0) {
       final d = hours ~/ 24;
@@ -341,29 +346,22 @@ class GardenPlant {
     return hours;
   }
 
-  /// Remaining hours until harvest from [now], based on [stageChangedAt].
+  /// Remaining hours until harvest from [now], based on [startedAt] + cycle.
   double remainingHoursToHarvest(
     Plant plant,
     DateTime now, {
     required bool useMax,
   }) {
-    return remainingHoursInCurrentStage(plant, now, useMax: useMax) +
-        hoursOfFollowingStages(plant, useMax: useMax);
+    final at = useMax ? harvestAt(plant, now) : harvestAtMin(plant, now);
+    final hours = at.difference(now).inMinutes / 60.0;
+    return hours > 0 ? hours : 0;
   }
 
-  DateTime harvestAt(Plant plant, DateTime now) => now.add(
-        Duration(
-          minutes:
-              (remainingHoursToHarvest(plant, now, useMax: true) * 60).round(),
-        ),
-      );
+  DateTime harvestAt(Plant plant, [DateTime? now]) =>
+      startedAt.add(plant.cycleDuration);
 
-  DateTime harvestAtMin(Plant plant, DateTime now) => now.add(
-        Duration(
-          minutes:
-              (remainingHoursToHarvest(plant, now, useMax: false) * 60).round(),
-        ),
-      );
+  DateTime harvestAtMin(Plant plant, [DateTime? now]) =>
+      startedAt.add(plant.cycleDurationMin);
 
   /// Calendar days until harvest date (upper bound). <= 0 means today/overdue.
   int daysUntilHarvest(Plant plant, DateTime now) {
@@ -385,16 +383,15 @@ class GardenPlant {
 
   List<GrowthStage> processStages(Plant plant) => plant.processStages;
 
-  /// Readiness from the same remaining-time clock as harvest / next phase.
+  /// Readiness from elapsed time since [startedAt], same clock as harvest dates.
   double progressFor(Plant plant, DateTime now) {
     if (stage == GrowthStage.harvest) return 1;
 
     final totalHours = plant.cycleDuration.inHours.toDouble();
     if (totalHours <= 0) return 1;
 
-    final remaining =
-        remainingHoursToHarvest(plant, now, useMax: true).clamp(0.0, totalHours);
-    return ((totalHours - remaining) / totalHours).clamp(0.0, 1.0);
+    final elapsedH = now.difference(startedAt).inMinutes / 60.0;
+    return (elapsedH / totalHours).clamp(0.0, 1.0);
   }
 
   bool needsWater(Plant plant, DateTime now) {
@@ -417,26 +414,30 @@ class GardenPlant {
   }
 
   /// Planned due moment for leaving the current stage (catalog minimum).
-  DateTime currentStageDueAtMin(Plant plant) => stageChangedAt.add(
-        Duration(hours: plant.stageDurationHoursMin(stage)),
-      );
+  DateTime currentStageDueAtMin(Plant plant) {
+    if (stage == GrowthStage.soak) return soakReminderAt(plant);
+    return stageChangedAt.add(
+      Duration(hours: plant.stageDurationHoursMin(stage)),
+    );
+  }
 
-  /// сегодня / завтра / `15 авг` — only the catalog minimum for this stage.
+  /// `15 авг` — only the catalog minimum for this stage.
   String currentStageWhenPhrase(Plant plant, DateTime now) =>
       whenPhrase(_calendarDaysUntil(currentStageDueAtMin(plant), now), now);
 
-  /// e.g. `Рост завтра`
+  /// e.g. `Рост 15 авг`
   String nextPhaseLine(Plant plant, DateTime now) {
     final next = nextStage(plant);
-    if (next == null) return 'Готово к срезке';
+    if (next == null) return 'Собрать';
     return '${stageLabel(next)} ${currentStageWhenPhrase(plant, now)}';
   }
 
   /// Status under the title:
-  /// `Замачивается. Посеять сегодня` /
-  /// `Прорастает. На свет завтра` /
+  /// `прошло 4ч | посеять сегодня в 16ч` /
+  /// `Прорастает. На свет 16 авг` /
   /// `Растет. Собрать 15 авг. Проверить воду`
   String statusLine(Plant plant, DateTime now) {
+    if (stage == GrowthStage.soak) return soakActionLabel(plant, now);
     final verb = stageVerb(plant, now);
     if (stage == GrowthStage.harvest) return verb;
 
@@ -468,7 +469,7 @@ class GardenPlant {
     return switch (next) {
       GrowthStage.germinate => 'Посеять',
       GrowthStage.grow =>
-        stage == GrowthStage.soak ? 'Посеять' : 'На свет',
+        stage == GrowthStage.soak ? 'Посеять' : 'Раскрыть',
       GrowthStage.harvest => 'Собрать',
       GrowthStage.soak => 'Посеять',
     };
@@ -480,6 +481,15 @@ class GardenPlant {
     final index = stages.indexOf(stage);
     if (index < 0) return true;
     return index >= stages.length - 2;
+  }
+
+  /// True when the date shown in [statusLine] is today or overdue.
+  bool isStatusActionDueToday(Plant plant, DateTime now) {
+    if (stage == GrowthStage.harvest) return true;
+    if (stage == GrowthStage.grow) {
+      return daysUntilHarvestMin(plant, now) <= 0;
+    }
+    return _calendarDaysUntil(currentStageDueAtMin(plant), now) <= 0;
   }
 
   /// Advance to the next process stage. No-op at harvest.
@@ -524,13 +534,17 @@ class GardenPlant {
   String titleCompact(Plant plant) =>
       '${displayName(plant)} от ${formatStartDateCompact(startedAt)}';
 
+  /// Next full hour at or after [t]. 7:33 → 8:00, 8:00 stays 8:00.
+  static DateTime ceilToHour(DateTime t) {
+    final hourStart = DateTime(t.year, t.month, t.day, t.hour);
+    if (!t.isAfter(hourStart)) return hourStart;
+    return hourStart.add(const Duration(hours: 1));
+  }
+
   /// Reminder for the next manual step — fires at the catalog minimum.
   List<DueAction> dueActions(Plant plant) {
     final (kind, at) = switch (stage) {
-      GrowthStage.soak => (
-          DueActionKind.sow,
-          stageChangedAt.add(Duration(hours: plant.soakHoursForTiming)),
-        ),
+      GrowthStage.soak => (DueActionKind.sow, soakReminderAt(plant)),
       GrowthStage.germinate => (
           DueActionKind.toLight,
           stageChangedAt
@@ -538,19 +552,19 @@ class GardenPlant {
         ),
       GrowthStage.grow || GrowthStage.harvest => (
           DueActionKind.harvest,
-          stageChangedAt.add(Duration(days: plant.growDaysLow)),
+          startedAt.add(plant.cycleDurationMin),
         ),
     };
     return [DueAction(kind: kind, at: at)];
   }
 
-  /// Home reminder line. Timing is implied by the «на сегодня» list.
+  /// Home reminder: title, then lowercase action on the next line.
   String reminderLine(Plant plant, DueAction action) =>
-      '${titleWithDate(plant)} ${action.message}';
+      '${titleWithDate(plant)}\n${action.message}';
 
-  /// Push text without date ranges.
+  /// Push text matches the home reminder.
   String pushLine(Plant plant, DueAction action) =>
-      '${titleWithDate(plant)} ${action.message}';
+      reminderLine(plant, action);
 
   /// Reminder text if [action] falls on calendar day of [now], else null.
   String? notificationIfDueToday(Plant plant, DueAction action, DateTime now) {
@@ -558,9 +572,33 @@ class GardenPlant {
     return pushLine(plant, action);
   }
 
-  /// Absolute soak push time [hoursAfterStart] after stage start (manual setting).
-  DateTime soakReminderAt({required int hoursAfterStart}) =>
-      stageChangedAt.add(Duration(hours: hoursAfterStart));
+  /// Reveal/to-light push: catalog minimum hours after germinate start.
+  DateTime germinateReminderAt(Plant plant) =>
+      stageChangedAt.add(Duration(hours: plant.germinateHoursForTiming));
+
+  /// Sow push: catalog min hours after soak start, rounded up to a full hour.
+  DateTime soakReminderAt(Plant plant) => ceilToHour(stageChangedAt)
+      .add(Duration(hours: plant.soakHoursForTiming));
+
+  /// `прошло 4ч | посеять сегодня в 16ч`
+  String soakActionLabel(Plant plant, DateTime now) {
+    final elapsed =
+        now.difference(stageChangedAt).inHours.clamp(0, 9999);
+    return 'прошло ${elapsed}ч | ${soakSowWhenLabel(plant, now)}';
+  }
+
+  /// `посеять сегодня в 16ч`
+  String soakSowWhenLabel(Plant plant, DateTime now) {
+    final due = soakReminderAt(plant);
+    final days = _calendarDaysUntil(due, now);
+    final dayPart = days == 0
+        ? 'сегодня'
+        : days == 1
+            ? 'завтра'
+            : formatStartDate(DateTime(due.year, due.month, due.day))
+                .replaceAll('.', '');
+    return 'посеять $dayPart в ${due.hour}ч';
+  }
 
   bool get isInGrowStage => stage == GrowthStage.grow;
 
@@ -575,21 +613,23 @@ class GardenPlant {
       GrowthStage.soak => 'Замачивается',
       GrowthStage.germinate => 'Прорастает',
       GrowthStage.grow => 'Растет',
-      GrowthStage.harvest => 'К срезке',
+      GrowthStage.harvest => 'Собрать',
     };
   }
 
-  /// Relative day label: сегодня / завтра / `19 авг`.
+  /// Relative day label: `19 авг`.
   static String whenPhrase(int days, [DateTime? now]) {
-    if (days <= 0) return 'сегодня';
-    if (days == 1) return 'завтра';
     final base = now ?? DateTime.now();
+    final offset = days < 0 ? 0 : days;
+    if (offset == 0) return 'сегодня';
+    if (offset == 1) return 'завтра';
+
     final day = DateTime(base.year, base.month, base.day)
-        .add(Duration(days: days));
+        .add(Duration(days: offset));
     return formatStartDate(day).replaceAll('.', '');
   }
 
-  /// Range with сегодня / завтра / dates: `сегодня–завтра`, `16 авг–19 авг`.
+  /// Range of dates: `16 авг–19 авг`.
   static String daysRangePhrase(int minDays, int maxDays, [DateTime? now]) {
     final at = now ?? DateTime.now();
     final min = minDays < maxDays ? minDays : maxDays;
@@ -659,10 +699,10 @@ String stageLabel(GrowthStage stage) => switch (stage) {
       GrowthStage.soak => 'Замачивание',
       GrowthStage.germinate => 'Проращивание',
       GrowthStage.grow => 'Рост',
-      GrowthStage.harvest => 'К срезке',
+      GrowthStage.harvest => 'Собрать',
     };
 
-enum DueActionKind { sow, toLight, harvest }
+enum DueActionKind { sow, toLight, harvest, water }
 
 class DueAction {
   const DueAction({required this.kind, required this.at});
@@ -671,9 +711,10 @@ class DueAction {
   final DateTime at;
 
   String get message => switch (kind) {
-        DueActionKind.sow => 'Пора посеять',
-        DueActionKind.toLight => 'Пора на свет',
-        DueActionKind.harvest => 'Собрать урожай',
+        DueActionKind.sow => 'посеять',
+        DueActionKind.toLight => 'раскрыть',
+        DueActionKind.harvest => 'собрать',
+        DueActionKind.water => 'проверить воду',
       };
 }
 

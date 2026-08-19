@@ -7,15 +7,11 @@ class SettingsStore extends ChangeNotifier {
   static const _hourKey = 'reminder_hour';
   static const _minuteKey = 'reminder_minute';
   static const _enabledKey = 'reminders_enabled';
-  static const _soakHoursKey = 'soak_reminder_hours';
   static const _dismissedKey = 'dismissed_reminders_v1';
 
   bool loaded = false;
   bool enabled = true;
   TimeOfDay reminderTime = const TimeOfDay(hour: 9, minute: 0);
-
-  /// Hours after soak start to remind about sowing (manual, not from culture table).
-  int soakReminderHours = 8;
 
   final Set<String> _dismissed = {};
 
@@ -28,7 +24,6 @@ class SettingsStore extends ChangeNotifier {
       hour: prefs.getInt(_hourKey) ?? 9,
       minute: prefs.getInt(_minuteKey) ?? 0,
     );
-    soakReminderHours = (prefs.getInt(_soakHoursKey) ?? 8).clamp(1, 72);
     _dismissed
       ..clear()
       ..addAll(prefs.getStringList(_dismissedKey) ?? const []);
@@ -52,17 +47,16 @@ class SettingsStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> setSoakReminderHours(int hours) async {
-    soakReminderHours = hours.clamp(1, 72);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_soakHoursKey, soakReminderHours);
-    notifyListeners();
-  }
-
   bool isReminderDismissed(String key) => _dismissed.contains(key);
 
   Future<void> dismissReminder(String key) async {
     if (!_dismissed.add(key)) return;
+    await _persistDismissed();
+    notifyListeners();
+  }
+
+  Future<void> restoreReminder(String key) async {
+    if (!_dismissed.remove(key)) return;
     await _persistDismissed();
     notifyListeners();
   }

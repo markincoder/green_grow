@@ -29,4 +29,19 @@ if (-not (Test-Path (Split-Path $sw -Parent))) {
 }
 
 Copy-Item -Force $ours $sw
+
+$verFile = Join-Path $flutterRoot (Join-Path $WebRoot "version.json")
+if (Test-Path $verFile) {
+  $ver = Get-Content -Raw $verFile | ConvertFrom-Json
+  $name = [string]$ver.version
+  $build = [string]$ver.build_number
+  if (-not [string]::IsNullOrWhiteSpace($name)) {
+    $cache = "microgreens-shell-$name+$build"
+    $text = Get-Content -Raw $sw
+    $text = [regex]::Replace($text, "const CACHE = '[^']+'", "const CACHE = '$cache'")
+    Set-Content -Path $sw -Value $text -NoNewline -Encoding utf8
+    Write-Host "PWA cache name -> $cache"
+  }
+}
+
 Write-Host "Installed PWA SW ($($cfg.id)) -> $sw ($((Get-Item $sw).Length) bytes)"

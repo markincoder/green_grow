@@ -8,9 +8,16 @@ import '../widgets/common_widgets.dart';
 import 'plant_detail_screen.dart';
 
 class CatalogScreen extends StatefulWidget {
-  const CatalogScreen({super.key, required this.store});
+  const CatalogScreen({
+    super.key,
+    required this.store,
+    this.onListPlantAdded,
+    this.onDetailPlantAdded,
+  });
 
   final GardenStore store;
+  final VoidCallback? onListPlantAdded;
+  final VoidCallback? onDetailPlantAdded;
 
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
@@ -120,83 +127,81 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     itemBuilder: (context, index) {
                       final plant = items[index];
                       return SoftPanel(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
+                        child: Row(
                           children: [
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () {
-                                  Navigator.of(context).push(
-                                    MaterialPageRoute(
-                                      builder: (_) => PlantDetailScreen(
-                                        plant: plant,
-                                        store: widget.store,
+                            Expanded(
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (_) => PlantDetailScreen(
+                                          plant: plant,
+                                          store: widget.store,
+                                          onPlantAdded:
+                                              widget.onDetailPlantAdded,
+                                        ),
                                       ),
-                                    ),
-                                  );
-                                },
-                                child: Row(
-                                  children: [
-                                    PlantAvatar(icon: plant.icon, size: 58),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            plant.name,
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .titleMedium,
-                                          ),
-                                          Text(
-                                            plant.tags.take(3).join(' · '),
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall
-                                                ?.copyWith(
-                                                  color: AppColors.muted,
-                                                ),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            '${plant.seedGrams} г на лоток · Полный цикл ${plant.cycleDaysLabel}',
-                                            style: Theme.of(context)
-                                                .textTheme
-                                                .bodySmall,
-                                          ),
-                                        ],
+                                    );
+                                  },
+                                  child: Row(
+                                    children: [
+                                      PlantAvatar(icon: plant.icon, size: 58),
+                                      const SizedBox(width: 14),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              plant.name,
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .titleMedium,
+                                            ),
+                                            Text(
+                                              plant.tags.take(3).join(' · '),
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall
+                                                  ?.copyWith(
+                                                    color: AppColors.muted,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              '${plant.seedGrams} г на лоток · Полный цикл ${plant.cycleDaysLabel}',
+                                              style: Theme.of(context)
+                                                  .textTheme
+                                                  .bodySmall,
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    DifficultyBadge(
-                                      difficulty: plant.difficulty,
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 44,
-                              child: FilledButton.icon(
-                                onPressed: () => addPlantToGarden(
+                            IconButton.filled(
+                              tooltip: 'Добавить на грядку',
+                              onPressed: () async {
+                                final added = await addPlantToGarden(
                                   context: context,
                                   plant: plant,
                                   store: widget.store,
-                                ),
-                                style: FilledButton.styleFrom(
-                                  backgroundColor: AppColors.leaf,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ),
-                                icon: const Icon(Icons.add_rounded, size: 20),
-                                label: const Text('Добавить на грядку'),
+                                );
+                                if (added) widget.onListPlantAdded?.call();
+                              },
+                              style: IconButton.styleFrom(
+                                backgroundColor: AppColors.leaf,
+                                foregroundColor: Colors.white,
+                                minimumSize: const Size(40, 40),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
+                              icon: const Icon(Icons.add_rounded, size: 22),
                             ),
                           ],
                         ),

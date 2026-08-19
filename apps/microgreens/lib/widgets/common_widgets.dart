@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/plant.dart';
 import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
+import 'stage_icons.dart';
 
 class SectionHeader extends StatelessWidget {
   const SectionHeader({
@@ -200,7 +201,7 @@ class StageTimeline extends StatelessWidget {
           title: 'Замачивание',
           detail: plant.soakLabel,
           note: 'В воде, до суток',
-          icon: Icons.water_drop_outlined,
+          glyph: StageGlyphKind.soak,
         ),
       if (plant.hasGerminateStage)
         _StageInfo(
@@ -209,14 +210,14 @@ class StageTimeline extends StatelessWidget {
           note: plant.needsPress
               ? 'В темноте, с крышкой, прижим ${plant.pressLabel}'
               : plant.pressLabel,
-          icon: Icons.dark_mode_outlined,
+          glyph: StageGlyphKind.germinate,
         ),
       if (plant.hasGrowStage)
         _StageInfo(
           title: 'Рост',
           detail: plant.growLabel,
           note: 'На свету, без крышки. Вода на дне, проверка раз в день',
-          icon: Icons.wb_sunny_outlined,
+          glyph: StageGlyphKind.grow,
         ),
     ];
 
@@ -236,7 +237,11 @@ class StageTimeline extends StatelessWidget {
                     color: AppColors.mist.withValues(alpha: 0.7),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(stages[i].icon, color: AppColors.meadow, size: 22),
+                  child: StageGlyph(
+                    kind: stages[i].glyph,
+                    color: AppColors.meadow,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -272,13 +277,6 @@ class StageTimeline extends StatelessWidget {
     );
   }
 }
-
-IconData stageIcon(GrowthStage stage) => switch (stage) {
-      GrowthStage.soak => Icons.water_drop_outlined,
-      GrowthStage.germinate => Icons.dark_mode_outlined,
-      GrowthStage.grow => Icons.wb_sunny_outlined,
-      GrowthStage.harvest => Icons.content_cut_rounded,
-    };
 
 /// Result of the start-tray bottom sheet.
 class StartTrayResult {
@@ -392,7 +390,7 @@ class _StartDateSheetState extends State<_StartDateSheet> {
     final minDays = preview.daysUntilHarvestMin(plant, now);
     final maxDays = preview.daysUntilHarvest(plant, now);
     if (maxDays <= 0 && minDays <= 0) {
-      return 'ожидаем урожай сегодня';
+      return 'ожидаем урожай ${GardenPlant.whenPhrase(0, today)}';
     }
     return 'ожидаем урожай ${GardenPlant.daysRangePhrase(minDays, maxDays, today)}';
   }
@@ -628,8 +626,8 @@ class _StartDateSheetState extends State<_StartDateSheet> {
                       ChoiceChip(
                         label: Text(stageLabel(stage)),
                         selected: _stage == stage,
-                        avatar: Icon(
-                          stageIcon(stage),
+                        avatar: StageGlyph(
+                          kind: stageGlyphKind(stage),
                           size: 18,
                           color: _stage == stage
                               ? Colors.white
@@ -703,11 +701,11 @@ class _StageInfo {
     required this.title,
     required this.detail,
     required this.note,
-    required this.icon,
+    required this.glyph,
   });
 
   final String title;
   final String detail;
   final String note;
-  final IconData icon;
+  final StageGlyphKind glyph;
 }

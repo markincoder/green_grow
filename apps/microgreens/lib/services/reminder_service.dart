@@ -22,7 +22,8 @@ class ReminderService {
       'Push о посеве, свете, сборе и поливе микрозелени';
 
   static const _digestHorizonDays = 21;
-  static const _waterLine = 'Вся зелень. Проверьте уровень воды';
+  static const _waterTitle = 'Вся зелень';
+  static const _waterAction = 'проверить воду';
   static const _deviceChannel = MethodChannel('com.greengrow.green_grow/device');
 
   final FlutterLocalNotificationsPlugin _plugin =
@@ -281,6 +282,9 @@ class ReminderService {
       _channelId,
       _channelName,
       channelDescription: _channelDescription,
+      icon: 'ic_notification',
+      largeIcon: const DrawableResourceAndroidBitmap('ic_notification_large'),
+      color: const Color(0xFF40916C),
       importance: Importance.max,
       priority: Priority.max,
       playSound: true,
@@ -328,14 +332,16 @@ class ReminderService {
     return !a.isAfter(d);
   }
 
-  /// Structured reminders for a calendar day: harvest → to light → sow → water.
-  /// Dismissed items stay in the list with [TodayReminderItem.done] = true.
+  /// Structured reminders for a calendar day.
+  /// Active items first, then completed. Inside each group:
+  /// soak → germinate → grow, water last.
   static List<TodayReminderItem> buildTodayReminders({
     required List<GardenPlant> plants,
     required DateTime day,
-    required int soakReminderHours,
     Set<String> dismissedKeys = const {},
+    DateTime? now,
   }) {
+    final at = now ?? DateTime.now();
     final harvest = <TodayReminderItem>[];
     final toLight = <TodayReminderItem>[];
     final sow = <TodayReminderItem>[];
@@ -343,17 +349,19 @@ class ReminderService {
 
     TodayReminderItem item({
       required String key,
-      required String text,
-      required String pushText,
+      required String title,
+      required String actionLabel,
       required DueActionKind? kind,
       required String? gardenId,
+      DateTime? dueAt,
     }) =>
         TodayReminderItem(
           key: key,
-          text: text,
-          pushText: pushText,
+          title: title,
+          actionLabel: actionLabel,
           kind: kind,
           gardenId: gardenId,
+          dueAt: dueAt,
           done: dismissedKeys.contains(key),
         );
 
@@ -363,45 +371,43 @@ class ReminderService {
 
       if (garden.stage == GrowthStage.soak) {
         if (!plant.needsSoak) continue;
-        final when = garden.soakReminderAt(hoursAfterStart: soakReminderHours);
-        if (_onOrBeforeDay(when, day)) {
-          final key = SettingsStore.gardenActionKey(
-            garden.id,
-            DueActionKind.sow,
-            day,
-          );
-          final action = DueAction(kind: DueActionKind.sow, at: when);
-          sow.add(
-            item(
-              key: key,
-              text: garden.reminderLine(plant, action),
-              pushText: garden.pushLine(plant, action),
-              kind: DueActionKind.sow,
-              gardenId: garden.id,
-            ),
-          );
-        }
+        final key = SettingsStore.gardenActionKey(
+          garden.id,
+          DueActionKind.sow,
+          day,
+        );
+        sow.add(
+          item(
+            key: key,
+            title: garden.titleWithDate(plant),
+            actionLabel: garden.soakActionLabel(plant, at),
+            kind: DueActionKind.sow,
+            gardenId: garden.id,
+            dueAt: garden.soakReminderAt(plant),
+          ),
+        );
         continue;
       }
 
       if (garden.isInGerminateStage) {
-        final due = garden.dueActions(plant).single;
-        if (_onOrBeforeDay(due.at, day)) {
-          final key = SettingsStore.gardenActionKey(
-            garden.id,
-            DueActionKind.toLight,
-            day,
-          );
-          toLight.add(
-            item(
-              key: key,
-              text: garden.reminderLine(plant, due),
-              pushText: garden.pushLine(plant, due),
-              kind: DueActionKind.toLight,
-              gardenId: garden.id,
-            ),
-          );
-        }
+        if (!plant.hasGerminateStage) continue;
+        final when = garden.germinateReminderAt(plant);
+        if (when.isAfter(at)) continue;
+        final key = SettingsStore.gardenActionKey(
+          garden.id,
+          DueActionKind.toLight,
+          day,
+        );
+        final action = DueAction(kind: DueActionKind.toLight, at: when);
+        toLight.add(
+          item(
+            key: key,
+            title: garden.titleWithDate(plant),
+            actionLabel: action.message,
+            kind: DueActionKind.toLight,
+            gardenId: garden.id,
+          ),
+        );
         continue;
       }
 
@@ -418,8 +424,8 @@ class ReminderService {
           harvest.add(
             item(
               key: key,
-              text: garden.reminderLine(plant, due),
-              pushText: garden.pushLine(plant, due),
+              title: garden.titleWithDate(plant),
+              actionLabel: due.message,
               kind: DueActionKind.harvest,
               gardenId: garden.id,
             ),
@@ -428,37 +434,84 @@ class ReminderService {
       }
     }
 
-    final items = <TodayReminderItem>[...harvest, ...toLight, ...sow];
+    for (final garden in plants) {
+      final plant = plantById(garden.plantId);
+      if (plant == null) continue;
+      final title = garden.titleWithDate(plant);
+
+      void keepCompleted(
+        DueActionKind kind,
+        String actionLabel,
+        List<TodayReminderItem> bucket,
+      ) {
+        final key = SettingsStore.gardenActionKey(garden.id, kind, day);
+        if (!dismissedKeys.contains(key)) return;
+        if (bucket.any((e) => e.key == key)) return;
+        bucket.add(
+          item(
+            key: key,
+            title: title,
+            actionLabel: actionLabel,
+            kind: kind,
+            gardenId: garden.id,
+          ),
+        );
+      }
+
+      keepCompleted(DueActionKind.sow, 'посеять', sow);
+      keepCompleted(DueActionKind.toLight, 'раскрыть', toLight);
+      keepCompleted(DueActionKind.harvest, 'собрать', harvest);
+    }
+
+    final items = <TodayReminderItem>[...sow, ...toLight, ...harvest];
+    final waterKey = SettingsStore.waterKey(day);
     if (anyGrow) {
-      final key = SettingsStore.waterKey(day);
       items.add(
         item(
-          key: key,
-          text: _waterLine,
-          pushText: _waterLine,
-          kind: null,
+          key: waterKey,
+          title: _waterTitle,
+          actionLabel: _waterAction,
+          kind: DueActionKind.water,
           gardenId: null,
         ),
       );
     }
+    items.sort(_compareTodayReminders);
     return items;
   }
 
-  /// Daily digest lines, sorted: harvest → to light → sow → water.
+  static int _compareTodayReminders(TodayReminderItem a, TodayReminderItem b) {
+    final byDone = (a.done ? 1 : 0).compareTo(b.done ? 1 : 0);
+    if (byDone != 0) return byDone;
+    return _stageRank(a.kind).compareTo(_stageRank(b.kind));
+  }
+
+  static int _stageRank(DueActionKind? kind) => switch (kind) {
+        DueActionKind.sow => 0,
+        DueActionKind.toLight => 1,
+        DueActionKind.harvest => 2,
+        DueActionKind.water || null => 3,
+      };
+
+  /// Daily digest lines, sorted: soak → germinate → grow → water.
   /// Completed (dismissed) items are omitted from push text.
   @visibleForTesting
   static String? buildDailyDigestBody({
     required List<GardenPlant> plants,
     required DateTime day,
-    int soakReminderHours = 8,
     Set<String> dismissedKeys = const {},
+    required DateTime digestAt,
   }) {
     final items = buildTodayReminders(
       plants: plants,
       day: day,
-      soakReminderHours: soakReminderHours,
       dismissedKeys: dismissedKeys,
-    ).where((e) => !e.done);
+      now: digestAt,
+    ).where((e) {
+      if (e.done) return false;
+      if (e.dueAt != null && e.dueAt!.isAfter(digestAt)) return false;
+      return true;
+    });
     if (items.isEmpty) return null;
     return items.map((e) => e.pushText).join('\n');
   }
@@ -478,7 +531,6 @@ class ReminderService {
     required List<GardenPlant> plants,
     required TimeOfDay reminderTime,
     required bool enabled,
-    required int soakReminderHours,
     required Set<String> dismissedKeys,
   }) async {
     if (!WebPushService.isSupported) {
@@ -510,13 +562,34 @@ class ReminderService {
           today,
         );
         if (dismissedKeys.contains(key)) continue;
-        final when =
-            garden.soakReminderAt(hoursAfterStart: soakReminderHours);
+        final when = garden.soakReminderAt(plant);
         if (!when.isAfter(now)) continue;
-        final action = DueAction(kind: DueActionKind.sow, at: when);
         items.add(
           WebPushScheduleItem(
             id: 'soak-${garden.id}',
+            at: when,
+            body:
+                '${garden.titleWithDate(plant)}\n${garden.soakActionLabel(plant, when)}',
+          ),
+        );
+      }
+
+      for (final garden in plants) {
+        if (garden.stage != GrowthStage.germinate) continue;
+        final plant = plantById(garden.plantId);
+        if (plant == null || !plant.hasGerminateStage) continue;
+        final key = SettingsStore.gardenActionKey(
+          garden.id,
+          DueActionKind.toLight,
+          today,
+        );
+        if (dismissedKeys.contains(key)) continue;
+        final when = garden.germinateReminderAt(plant);
+        if (!when.isAfter(now)) continue;
+        final action = DueAction(kind: DueActionKind.toLight, at: when);
+        items.add(
+          WebPushScheduleItem(
+            id: 'germinate-${garden.id}',
             at: when,
             body: garden.pushLine(plant, action),
           ),
@@ -526,13 +599,6 @@ class ReminderService {
       for (var i = 0; i < _digestHorizonDays; i++) {
         final day = today.add(Duration(days: i));
         final dayDismissed = i == 0 ? dismissedKeys : const <String>{};
-        final body = buildDailyDigestBody(
-          plants: plants,
-          day: day,
-          soakReminderHours: soakReminderHours,
-          dismissedKeys: dayDismissed,
-        );
-        if (body == null) continue;
         final when = DateTime(
           day.year,
           day.month,
@@ -541,6 +607,13 @@ class ReminderService {
           reminderTime.minute,
         );
         if (!when.isAfter(now)) continue;
+        final body = buildDailyDigestBody(
+          plants: plants,
+          day: day,
+          dismissedKeys: dayDismissed,
+          digestAt: when,
+        );
+        if (body == null) continue;
         items.add(
           WebPushScheduleItem(
             id: 'digest-${day.year}${day.month}${day.day}',
@@ -561,7 +634,6 @@ class ReminderService {
     required List<GardenPlant> plants,
     required TimeOfDay reminderTime,
     required bool enabled,
-    required int soakReminderHours,
     Set<String> dismissedKeys = const {},
   }) async {
     if (kIsWeb) {
@@ -569,7 +641,6 @@ class ReminderService {
         plants: plants,
         reminderTime: reminderTime,
         enabled: enabled,
-        soakReminderHours: soakReminderHours,
         dismissedKeys: dismissedKeys,
       );
       return;
@@ -600,10 +671,30 @@ class ReminderService {
             garden: garden,
             plant: plant,
             now: now,
-            soakReminderHours: soakReminderHours,
           );
         } catch (e, st) {
           debugPrint('ReminderService: soak ${garden.id}: $e\n$st');
+        }
+      }
+
+      for (final garden in plants) {
+        if (garden.stage != GrowthStage.germinate) continue;
+        final plant = plantById(garden.plantId);
+        if (plant == null || !plant.hasGerminateStage) continue;
+        final key = SettingsStore.gardenActionKey(
+          garden.id,
+          DueActionKind.toLight,
+          today,
+        );
+        if (dismissedKeys.contains(key)) continue;
+        try {
+          await _scheduleGerminate(
+            garden: garden,
+            plant: plant,
+            now: now,
+          );
+        } catch (e, st) {
+          debugPrint('ReminderService: germinate ${garden.id}: $e\n$st');
         }
       }
 
@@ -611,13 +702,6 @@ class ReminderService {
         final day = today.add(Duration(days: i));
         // Day-scoped dismissals: only today's checks silence today's digest.
         final dayDismissed = i == 0 ? dismissedKeys : const <String>{};
-        final body = buildDailyDigestBody(
-          plants: plants,
-          day: day,
-          soakReminderHours: soakReminderHours,
-          dismissedKeys: dayDismissed,
-        );
-        if (body == null) continue;
         final when = DateTime(
           day.year,
           day.month,
@@ -626,6 +710,13 @@ class ReminderService {
           reminderTime.minute,
         );
         if (!when.isAfter(now)) continue;
+        final body = buildDailyDigestBody(
+          plants: plants,
+          day: day,
+          dismissedKeys: dayDismissed,
+          digestAt: when,
+        );
+        if (body == null) continue;
         try {
           await _scheduleAt(
             id: _digestId(day),
@@ -648,15 +739,29 @@ class ReminderService {
     required GardenPlant garden,
     required Plant plant,
     required DateTime now,
-    required int soakReminderHours,
   }) async {
-    final when =
-        garden.soakReminderAt(hoursAfterStart: soakReminderHours);
+    final when = garden.soakReminderAt(plant);
     if (!when.isAfter(now)) return;
-    final action = DueAction(kind: DueActionKind.sow, at: when);
-    final text = garden.pushLine(plant, action);
+    final text =
+        '${garden.titleWithDate(plant)}\n${garden.soakActionLabel(plant, when)}';
     await _scheduleAt(
       id: _notificationId(garden.id, DueActionKind.sow),
+      body: text,
+      when: _toTz(when),
+    );
+  }
+
+  Future<void> _scheduleGerminate({
+    required GardenPlant garden,
+    required Plant plant,
+    required DateTime now,
+  }) async {
+    final when = garden.germinateReminderAt(plant);
+    if (!when.isAfter(now)) return;
+    final action = DueAction(kind: DueActionKind.toLight, at: when);
+    final text = garden.pushLine(plant, action);
+    await _scheduleAt(
+      id: _notificationId(garden.id, DueActionKind.toLight),
       body: text,
       when: _toTz(when),
     );
@@ -747,26 +852,28 @@ class ReminderService {
 class TodayReminderItem {
   const TodayReminderItem({
     required this.key,
-    required this.text,
-    required this.pushText,
+    required this.title,
+    required this.actionLabel,
     required this.kind,
     required this.gardenId,
+    this.dueAt,
     this.done = false,
   });
 
   final String key;
-  final String text;
-  final String pushText;
+  final String title;
+  final String actionLabel;
 
-  /// Null means the shared watering reminder.
+  String get text => '$title\n$actionLabel';
+  String get pushText => text;
+
+  /// Shared watering reminder when [DueActionKind.water].
   final DueActionKind? kind;
   final String? gardenId;
-  final bool done;
 
-  IconData get typeIcon => switch (kind) {
-        DueActionKind.sow => Icons.grass_rounded,
-        DueActionKind.toLight => Icons.wb_sunny_rounded,
-        DueActionKind.harvest => Icons.content_cut_rounded,
-        null => Icons.water_drop_rounded,
-      };
+  /// When set, daily digest waits until this moment (catalog min hours).
+  final DateTime? dueAt;
+
+  /// Checked off on the home list; still shown, not sent in push.
+  final bool done;
 }

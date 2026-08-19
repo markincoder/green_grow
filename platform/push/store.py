@@ -71,7 +71,7 @@ class Store:
         self.vapid_subject = os.environ.get("VAPID_SUBJECT") or "mailto:support@agronizer.ru"
 
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.access = AccessDB()
+        self.access = AccessDB(data_dir=self.data_dir)
         self.vapid_path = self.data_dir / "vapid.json"
         self.subs_path = self.data_dir / "subscriptions.json"
         self.schedule_path = self.data_dir / "schedules.json"

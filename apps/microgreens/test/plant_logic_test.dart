@@ -47,7 +47,7 @@ void main() {
     );
     expect(ready.titleWithDate(arugula), startsWith('Рукола от '));
     expect(ready.titleWithDate(arugula), isNot(contains('.')));
-    expect(ready.statusLine(arugula, now), 'К срезке');
+    expect(ready.statusLine(arugula, now), 'Собрать');
     expect(ready.nextActionLabel(arugula), 'Собрать');
 
     final dated = GardenPlant(
@@ -72,8 +72,8 @@ void main() {
     );
     expect(fresh.titleWithDate(arugula), 'Рукола от 7 авг');
     expect(fresh.stageVerb(arugula, now), 'Прорастает');
-    expect(fresh.statusLine(arugula, now), 'Прорастает. На свет 9 авг');
-    expect(fresh.nextActionLabel(arugula), 'На свет');
+    expect(fresh.statusLine(arugula, now), 'Прорастает. Раскрыть 9 авг');
+    expect(fresh.nextActionLabel(arugula), 'Раскрыть');
 
     final soaking = GardenPlant(
       id: '3',
@@ -83,7 +83,7 @@ void main() {
       stage: GrowthStage.soak,
     );
     expect(soaking.stageVerb(pea, now), 'Замачивается');
-    expect(soaking.statusLine(pea, now), 'Замачивается. Посеять сегодня');
+    expect(soaking.statusLine(pea, now), 'прошло 0ч | посеять сегодня в 23ч');
     expect(soaking.nextActionLabel(pea), 'Посеять');
 
     final growing = GardenPlant(
@@ -97,7 +97,7 @@ void main() {
     expect(growing.stageVerb(arugula, now), 'Растет');
     expect(
       growing.statusLine(arugula, now),
-      'Растет. Собрать 11 авг. Проверить воду',
+      'Растет. Собрать 10 авг. Проверить воду',
     );
     expect(growing.nextActionLabel(arugula), 'Собрать');
 
@@ -109,10 +109,10 @@ void main() {
       stage: GrowthStage.grow,
       stageChangedAt: now,
     );
-    expect(growingWatered.statusLine(arugula, now), 'Растет. Собрать 11 авг');
+    expect(growingWatered.statusLine(arugula, now), 'Растет. Собрать 10 авг');
   });
 
-  test('whenPhrase сегодня/завтра/дата', () {
+  test('whenPhrase uses lowercase сегодня/завтра and later dates', () {
     final now = DateTime(2026, 8, 11);
     expect(GardenPlant.whenPhrase(0, now), 'сегодня');
     expect(GardenPlant.whenPhrase(1, now), 'завтра');
@@ -121,6 +121,36 @@ void main() {
     expect(GardenPlant.daysRangePhrase(0, 1, now), 'сегодня–завтра');
     expect(GardenPlant.daysRangePhrase(0, 2, now), 'сегодня–13 авг');
     expect(GardenPlant.daysRangePhrase(5, 8, now), '16 авг–19 авг');
+  });
+
+  test('soak sow time ceils start to next hour then adds catalog min', () {
+    expect(
+      GardenPlant.ceilToHour(DateTime(2026, 8, 17, 7, 33)),
+      DateTime(2026, 8, 17, 8),
+    );
+    expect(
+      GardenPlant.ceilToHour(DateTime(2026, 8, 17, 8)),
+      DateTime(2026, 8, 17, 8),
+    );
+    final pea = plantById('pea')!;
+    final started = DateTime(2026, 8, 17, 7, 33);
+    final garden = GardenPlant(
+      id: 'p',
+      plantId: pea.id,
+      startedAt: started,
+      lastWateredAt: started,
+      stage: GrowthStage.soak,
+      stageChangedAt: started,
+    );
+    expect(garden.soakReminderAt(pea), DateTime(2026, 8, 17, 16));
+    expect(
+      garden.soakActionLabel(pea, DateTime(2026, 8, 17, 11, 33)),
+      'прошло 4ч | посеять сегодня в 16ч',
+    );
+    expect(
+      garden.statusLine(pea, DateTime(2026, 8, 17, 11, 33)),
+      'прошло 4ч | посеять сегодня в 16ч',
+    );
   });
 
   test('manual advance soak → germinate → grow → harvest', () {
@@ -139,7 +169,7 @@ void main() {
 
     garden.advanceStage(plant);
     expect(garden.stage, GrowthStage.germinate);
-    expect(garden.nextActionLabel(plant), 'На свет');
+    expect(garden.nextActionLabel(plant), 'Раскрыть');
 
     garden.advanceStage(plant);
     expect(garden.stage, GrowthStage.grow);
@@ -188,7 +218,7 @@ void main() {
         DateTime(toLight.at.year, toLight.at.month, toLight.at.day);
     expect(
       garden.notificationIfDueToday(arugula, toLight, lightDay),
-      'Рукола от 4 авг Пора на свет',
+      'Рукола от 4 авг\nраскрыть',
     );
 
     final growing = GardenPlant(
@@ -201,12 +231,12 @@ void main() {
     );
     final harvest = growing.dueActions(arugula).single;
     expect(harvest.kind, DueActionKind.harvest);
-    expect(harvest.at, started.add(const Duration(days: 4)));
+    expect(harvest.at, started.add(arugula.cycleDurationMin));
     final harvestDay =
         DateTime(harvest.at.year, harvest.at.month, harvest.at.day);
     expect(
       growing.notificationIfDueToday(arugula, harvest, harvestDay),
-      'Рукола от 4 авг Собрать урожай',
+      'Рукола от 4 авг\nсобрать',
     );
 
     expect(
@@ -217,6 +247,39 @@ void main() {
       ),
       isNull,
     );
+  });
+
+  test('status highlight only when action date is today', () {
+    final arugula = plantById('arugula_mg')!;
+    final started = DateTime(2026, 8, 4, 10);
+    final growing = GardenPlant(
+      id: 'g1',
+      plantId: arugula.id,
+      startedAt: started,
+      lastWateredAt: started,
+      stage: GrowthStage.grow,
+      stageChangedAt: started,
+    );
+
+    final harvestDay = DateTime(
+      growing.harvestAtMin(arugula).year,
+      growing.harvestAtMin(arugula).month,
+      growing.harvestAtMin(arugula).day,
+    );
+    final dayBefore = harvestDay.subtract(const Duration(days: 1));
+
+    expect(growing.completesNext(arugula), isTrue);
+    expect(growing.isStatusActionDueToday(arugula, dayBefore), isFalse);
+    expect(growing.isStatusActionDueToday(arugula, harvestDay), isTrue);
+
+    final ready = GardenPlant(
+      id: 'g2',
+      plantId: arugula.id,
+      startedAt: started,
+      lastWateredAt: started,
+      stage: GrowthStage.harvest,
+    );
+    expect(ready.isStatusActionDueToday(arugula, dayBefore), isTrue);
   });
 
   test('initial stage depends on soak and dark need', () {
@@ -293,8 +356,8 @@ void main() {
       stage: GrowthStage.grow,
       stageChangedAt: now.subtract(const Duration(days: 2, hours: 12)),
     );
-    // 72 + 60 = 132 / 192 = 68.75%
-    expect(midGrow.progressFor(radish, now), closeTo(132 / 192, 0.01));
+    // 5d elapsed / 8d cycle
+    expect(midGrow.progressFor(radish, now), closeTo(120 / 192, 0.01));
 
     final ready = GardenPlant(
       id: 'r5',
@@ -335,11 +398,11 @@ void main() {
     );
     expect(
       growing.nextPhaseLine(radish, now),
-      'К срезке 14 авг',
+      'Собрать 14 авг',
     );
-    expect(growing.harvestLine(radish, now), 'Урожай 14 авг–16 авг');
+    expect(growing.harvestLine(radish, now), 'Урожай 13 авг–16 авг');
 
-    // Progress follows stageChangedAt, not startedAt / full cycle start.
+    // Progress follows startedAt / full cycle, not the selected stage clock.
     expect(growing.progressFor(radish, now), closeTo(72 / 192, 0.01));
     final midGrow = GardenPlant(
       id: 'g2',
@@ -349,8 +412,7 @@ void main() {
       stage: GrowthStage.grow,
       stageChangedAt: now.subtract(const Duration(days: 2)),
     );
-    // remaining from stage start 5d, elapsed 2d → remaining 3d → (8-3)/8
-    expect(midGrow.progressFor(radish, now), closeTo(5 / 8, 0.01));
+    expect(midGrow.progressFor(radish, now), 1.0);
   });
 
   test('overdue germinate uses remaining time for harvest and progress', () {
@@ -366,10 +428,33 @@ void main() {
       stageChangedAt: started,
     );
 
-    // Current stage fully past → next action today; harvest = grow only.
-    expect(overdue.statusLine(radish, now), 'Прорастает. На свет сегодня');
-    expect(overdue.harvestLine(radish, now), 'Урожай 16 авг–18 авг');
-    expect(overdue.progressFor(radish, now), closeTo(72 / 192, 0.01));
+    expect(overdue.statusLine(radish, now), 'Прорастает. Раскрыть сегодня');
+    // Harvest is always start + catalog cycle, even if this stage is overdue.
+    expect(overdue.harvestLine(radish, now), 'Урожай сегодня–15 авг');
+    expect(overdue.progressFor(radish, now), closeTo(146 / 192, 0.01));
+  });
+
+  test('harvest dates follow start date, not selected stage', () {
+    final pea = plantById('pea')!;
+    final now = DateTime(2026, 8, 17, 12);
+    final started = DateTime(2026, 8, 10, 12);
+
+    GardenPlant tray(GrowthStage stage) => GardenPlant(
+          id: stage.name,
+          plantId: pea.id,
+          startedAt: started,
+          lastWateredAt: started,
+          stage: stage,
+          stageChangedAt: now,
+        );
+
+    final soaking = tray(GrowthStage.soak);
+    final growing = tray(GrowthStage.grow);
+    expect(soaking.harvestAtMin(pea, now), growing.harvestAtMin(pea, now));
+    expect(soaking.harvestAt(pea, now), growing.harvestAt(pea, now));
+    expect(soaking.harvestAtMin(pea, now), started.add(pea.cycleDurationMin));
+    expect(soaking.harvestAt(pea, now), started.add(pea.cycleDuration));
+    expect(soaking.harvestLine(pea, now), growing.harvestLine(pea, now));
   });
 
   test('due actions use catalog minimum duration', () {
@@ -391,7 +476,7 @@ void main() {
     expect(due.at, started.add(const Duration(hours: 48)));
     expect(
       garden.reminderLine(arugula, due),
-      'Рукола от 1 авг Пора на свет',
+      'Рукола от 1 авг\nраскрыть',
     );
   });
 }

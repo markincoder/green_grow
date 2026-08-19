@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import base64
+import hmac
 import hashlib
 import json
 import os
 import secrets
-from datetime import datetime, timezone
+import smtplib
+from email.message import EmailMessage
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
@@ -16,7 +19,6 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 
-from store import read_json, write_json
 from access import TERMS_VERSION, paid_period_label, paid_period_months
 
 SESSION_COOKIE = "agronizer_session"
@@ -112,6 +114,11 @@ def _looks_like_email(value: str) -> bool:
     return bool(local and "." in domain)
 
 
+def _normalize_email(value: str) -> str:
+    text = pick_email(value)
+    return text.strip().lower() if text else ""
+
+
 def pick_email(*candidates: Any) -> str:
     for item in candidates:
         if isinstance(item, list):
@@ -176,44 +183,187 @@ def _set_session_cookie(response: Response, request: Request, user: dict[str, An
     )
 
 
+def _users(request: Request):
+    return request.app.state.store.access
+
+
+def _session_user(user: dict[str, Any], provider: str | None = None) -> dict[str, Any]:
+    data = dict(user)
+    if provider:
+        data["provider"] = provider
+    data["id"] = str(data.get("id") or data.get("user_id") or "")
+    return data
+
+
+def _pbkdf2_hash(password: str, salt: bytes, rounds: int = 200_000) -> str:
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, rounds)
+    return f"pbkdf2_sha256${rounds}${base64.urlsafe_b64encode(salt).decode()}${base64.urlsafe_b64encode(digest).decode()}"
+
+
+def _hash_password(password: str) -> str:
+    return _pbkdf2_hash(password, secrets.token_bytes(16))
+
+
+def _verify_password(password: str, encoded: str) -> bool:
+    try:
+        algo, rounds_raw, salt_raw, digest_raw = str(encoded).split("$", 3)
+        if algo != "pbkdf2_sha256":
+            return False
+        rounds = int(rounds_raw)
+        salt = base64.urlsafe_b64decode(salt_raw.encode("utf-8"))
+        expected = _pbkdf2_hash(password, salt, rounds)
+        return hmac.compare_digest(expected, encoded)
+    except Exception:
+        return False
+
+
+def _temp_password() -> str:
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+    return "".join(secrets.choice(alphabet) for _ in range(10))
+
+
+def _email_code() -> str:
+    return "".join(secrets.choice("0123456789") for _ in range(6))
+
+
 def upsert_user(
     request: Request, provider: str, provider_id: str, name: str, email: str = ""
 ) -> dict[str, Any]:
-    user_id = f"{provider}:{provider_id}"
-    path = request.app.state.store.data_dir / "users.json"
-    users = read_json(path, {})
-    if not isinstance(users, dict):
-        users = {}
-    now = datetime.now(timezone.utc).isoformat()
-    existing = users.get(user_id) if isinstance(users.get(user_id), dict) else {}
-    user = {
-        "id": user_id,
-        "provider": provider,
-        "providerId": str(provider_id),
-        "name": name or existing.get("name") or "",
-        "email": pick_email(email) or existing.get("email") or "",
-        "createdAt": existing.get("createdAt") or now,
-        "lastLoginAt": now,
-    }
-    users[user_id] = user
-    write_json(path, users)
-    return user
+    user = _users(request).upsert_oauth_user(provider, str(provider_id), name, email)
+    return _session_user(user, provider)
 
 
 def lookup_user_email(request: Request, user_id: str) -> str:
-    path = request.app.state.store.data_dir / "users.json"
-    users = read_json(path, {})
-    row = users.get(user_id) if isinstance(users, dict) else None
-    if isinstance(row, dict):
-        return pick_email(row.get("email"))
-    return ""
+    row = _users(request).find_user(user_id=user_id)
+    return pick_email((row or {}).get("email"))
+
+
+def session_user_row(request: Request) -> dict[str, Any] | None:
+    session = read_session(request)
+    if not session:
+        return None
+    return _users(request).find_user(
+        user_id=str(session.get("id") or ""),
+        email=pick_email(session.get("email")),
+    )
 
 
 def session_email(request: Request) -> str:
     session = read_session(request)
     if not session:
         return ""
-    return pick_email(session.get("email")) or lookup_user_email(request, str(session.get("id") or ""))
+    row = session_user_row(request)
+    return pick_email((row or {}).get("email"), session.get("email"))
+
+
+def _smtp_config() -> dict[str, Any] | None:
+    host = (os.environ.get("SMTP_HOST") or "").strip()
+    if not host:
+        return None
+    port_raw = (os.environ.get("SMTP_PORT") or "587").strip()
+    try:
+        port = int(port_raw)
+    except ValueError:
+        port = 587
+    user = (os.environ.get("SMTP_USER") or "").strip()
+    password = os.environ.get("SMTP_PASS") or ""
+    sender = (os.environ.get("SMTP_FROM") or user or "no-reply@agronizer.ru").strip()
+    use_tls = (os.environ.get("SMTP_TLS") or "1").strip() not in {"0", "false", "False"}
+    return {
+        "host": host,
+        "port": port,
+        "user": user,
+        "password": password,
+        "sender": sender,
+        "tls": use_tls,
+    }
+
+
+def _send_temp_password(email: str, password: str) -> bool:
+    return _send_mail(
+        email=email,
+        subject="Временный пароль — Агронайзер",
+        body=(
+            "Вы запросили восстановление пароля в Агронайзер.\n\n"
+            f"Временный пароль: {password}\n\n"
+            "После входа нажмите «Сменить пароль» в правом верхнем углу сайта.\n"
+        ),
+        log_prefix="password reset mail",
+    )
+
+
+def _send_verification_code(email: str, code: str) -> bool:
+    return _send_mail(
+        email=email,
+        subject="Код подтверждения email — Агронайзер",
+        body=(
+            "Вы регистрируетесь в Агронайзер.\n\n"
+            f"Код подтверждения: {code}\n\n"
+            "Введите его в форме регистрации на сайте. Код действует 15 минут.\n"
+        ),
+        log_prefix="email verification mail",
+    )
+
+
+def _send_mail(email: str, subject: str, body: str, log_prefix: str) -> bool:
+    cfg = _smtp_config()
+    if not cfg:
+        print(f"{log_prefix}: SMTP is not configured", flush=True)
+        return False
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = cfg["sender"]
+    msg["To"] = email
+    msg.set_content(body)
+    try:
+        with smtplib.SMTP(cfg["host"], cfg["port"], timeout=20) as smtp:
+            if cfg["tls"]:
+                smtp.starttls()
+            if cfg["user"]:
+                smtp.login(cfg["user"], cfg["password"])
+            smtp.send_message(msg)
+        return True
+    except smtplib.SMTPAuthenticationError as exc:
+        code = getattr(exc, "smtp_code", "")
+        raw = getattr(exc, "smtp_error", b"")
+        if isinstance(raw, bytes):
+            detail = raw.decode("utf-8", errors="replace")
+        else:
+            detail = str(raw)
+        print(
+            f"{log_prefix} auth error: "
+            f"host={cfg['host']} port={cfg['port']} tls={cfg['tls']} "
+            f"user={cfg['user']!r} from={cfg['sender']!r} "
+            f"code={code} detail={detail}",
+            flush=True,
+        )
+        return False
+    except smtplib.SMTPException as exc:
+        code = getattr(exc, "smtp_code", "")
+        raw = getattr(exc, "smtp_error", b"")
+        if isinstance(raw, bytes):
+            detail = raw.decode("utf-8", errors="replace")
+        else:
+            detail = str(raw)
+        print(
+            f"{log_prefix} smtp error: "
+            f"{type(exc).__name__} "
+            f"host={cfg['host']} port={cfg['port']} tls={cfg['tls']} "
+            f"user={cfg['user']!r} from={cfg['sender']!r} "
+            f"code={code} detail={detail}",
+            flush=True,
+        )
+        return False
+    except Exception as exc:
+        print(
+            f"{log_prefix} error: "
+            f"{type(exc).__name__} "
+            f"host={cfg['host']} port={cfg['port']} tls={cfg['tls']} "
+            f"user={cfg['user']!r} from={cfg['sender']!r} "
+            f"detail={exc}",
+            flush=True,
+        )
+        return False
 
 
 def trial_period_days() -> int:
@@ -223,6 +373,36 @@ def trial_period_days() -> int:
     except ValueError:
         days = 7
     return max(1, days)
+
+
+def _static_dir() -> Path:
+    raw = (os.environ.get("STATIC_DIR") or "").strip()
+    if raw:
+        return Path(raw)
+    return Path(__file__).resolve().parent.parent.parent / "site"
+
+
+def published_app_info(site: str) -> dict[str, Any]:
+    """Latest shipped app version from Flutter `version.json` after PWA/APK build."""
+    version = ""
+    build = 0
+    path = _static_dir() / "apps" / "microgreens" / "version.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            version = str(data.get("version") or "").strip()
+            raw_build = data.get("build_number")
+            if raw_build not in (None, ""):
+                build = int(str(raw_build).strip())
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        pass
+    base = site.rstrip("/")
+    return {
+        "appVersion": version,
+        "appBuild": build,
+        "apkUrl": f"{base}/apps/microgreens/microgreens.apk",
+        "pwaUrl": f"{base}/apps/microgreens/",
+    }
 
 
 @auth_router.get("/api/config")
@@ -237,6 +417,7 @@ async def api_config(request: Request):
     return {
         "oauthYandex": yandex_configured(),
         "oauthVk": vk_configured(),
+        "passwordAuth": True,
         "yandexRedirectUri": oauth_redirect_uri(request, "yandex"),
         "vkRedirectUri": oauth_redirect_uri(request, "vk"),
         "yookassaSum": yookassa_sum,
@@ -244,6 +425,7 @@ async def api_config(request: Request):
         "paidPeriod": paid_period_months(),
         "paidPeriodLabel": paid_period_label(),
         "siteUrl": site,
+        **published_app_info(site),
     }
 
 
@@ -252,22 +434,25 @@ async def auth_me(request: Request):
     session = read_session(request)
     if not session:
         return JSONResponse({"guest": True})
-    email = session_email(request)
+    row = session_user_row(request)
+    email = pick_email((row or {}).get("email"), session.get("email"))
+    uid = str((row or {}).get("id") or session.get("id") or "")
     payload = {
         "guest": False,
-        "id": session.get("id"),
-        "provider": session.get("provider"),
-        "name": session.get("name") or "",
+        "id": uid,
+        "provider": session.get("provider") or (row or {}).get("provider") or "",
+        "name": (row or {}).get("name") or session.get("name") or "",
         "email": email,
+        "hasPassword": bool(row and row.get("hasPassword")),
+        "mustChangePassword": bool(row and row.get("mustChangePassword")),
     }
     access = request.app.state.store.access.find(
-        user_id=str(session.get("id") or ""),
+        user_id=uid,
         email=email,
         slug="microgreens",
     )
     download = request.app.state.store.access.get_download(
-        user_id=str(session.get("id") or ""),
-        email=email,
+        user_id=uid,
         slug="microgreens",
     )
     if access:
@@ -276,16 +461,161 @@ async def auth_me(request: Request):
         payload["expiresAt"] = access.get("expires_at") or ""
         payload["activatedAt"] = access.get("activated_at") or ""
     if download:
-        payload["appName"] = download.get("app_name") or ""
         payload["downloadKind"] = download.get("kind") or ""
         payload["downloadedAt"] = download.get("downloaded_at") or ""
         payload["downloadCount"] = int(download.get("download_count") or 0)
-    payload["termsAccepted"] = request.app.state.store.access.has_terms(
-        user_id=str(session.get("id") or ""),
+    payload["termsAccepted"] = request.app.state.store.access.has_terms(user_id=uid)
+    payload["termsVersion"] = TERMS_VERSION
+    response = JSONResponse(payload)
+    if row and str(session.get("id") or "") != uid:
+        _set_session_cookie(response, request, _session_user(row, str(payload["provider"])))
+    return response
+
+
+@auth_router.post("/api/auth/password/register")
+async def auth_password_register(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    email = _normalize_email(body.get("email") if isinstance(body, dict) else "")
+    password = str(body.get("password") if isinstance(body, dict) else "")
+    if not email:
+        return JSONResponse({"ok": False, "error": "email_required"}, status_code=400)
+    if len(password) < 8:
+        return JSONResponse({"ok": False, "error": "password_short"}, status_code=400)
+    if not _users(request).consume_verified_email(email):
+        return JSONResponse({"ok": False, "error": "email_not_verified"}, status_code=400)
+    error, user = _users(request).register_password_user(email, _hash_password(password))
+    if error == "exists" or not user:
+        return JSONResponse({"ok": False, "error": error or "exists"}, status_code=409 if error == "exists" else 400)
+    session = _session_user(user, "password")
+    response = JSONResponse({"ok": True, "email": session.get("email"), "mustChangePassword": False})
+    _set_session_cookie(response, request, session)
+    return response
+
+
+@auth_router.post("/api/auth/password/send-code")
+async def auth_password_send_code(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    email = _normalize_email(body.get("email") if isinstance(body, dict) else "")
+    if not email:
+        return JSONResponse({"ok": False, "error": "email_required"}, status_code=400)
+    existing = _users(request).find_user(email=email)
+    if existing and existing.get("password_hash"):
+        return JSONResponse({"ok": False, "error": "exists"}, status_code=409)
+    code = _email_code()
+    if not _users(request).save_email_verification(email, code):
+        return JSONResponse({"ok": False, "error": "code_store_failed"}, status_code=500)
+    if not _send_verification_code(email, code):
+        return JSONResponse({"ok": False, "error": "email_unavailable"}, status_code=503)
+    return JSONResponse({"ok": True})
+
+
+@auth_router.post("/api/auth/password/check-code")
+async def auth_password_check_code(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    email = _normalize_email(body.get("email") if isinstance(body, dict) else "")
+    code = str(body.get("code") if isinstance(body, dict) else "")
+    status = _users(request).check_email_verification(email, code)
+    if status == "ok":
+        return JSONResponse({"ok": True, "verified": True})
+    code_map = {
+        "email_required": 400,
+        "code_required": 400,
+        "code_missing": 400,
+        "code_expired": 400,
+        "code_invalid": 400,
+    }
+    return JSONResponse({"ok": False, "error": status}, status_code=code_map.get(status, 400))
+
+
+@auth_router.post("/api/auth/password/login")
+async def auth_password_login(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    email = _normalize_email(body.get("email") if isinstance(body, dict) else "")
+    password = str(body.get("password") if isinstance(body, dict) else "")
+    row = _users(request).find_user(email=email)
+    if not row or not row.get("password_hash"):
+        return JSONResponse({"ok": False, "error": "invalid_credentials"}, status_code=401)
+    if not _verify_password(password, str(row.get("password_hash") or "")):
+        return JSONResponse({"ok": False, "error": "invalid_credentials"}, status_code=401)
+    row = _users(request).login_password_user(email) or row
+    session = _session_user(row, "password")
+    response = JSONResponse(
+        {
+            "ok": True,
+            "email": session.get("email"),
+            "mustChangePassword": bool(row.get("mustChangePassword")),
+        }
+    )
+    _set_session_cookie(response, request, session)
+    return response
+
+
+@auth_router.post("/api/auth/password/forgot")
+async def auth_password_forgot(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    email = _normalize_email(body.get("email") if isinstance(body, dict) else "")
+    if not email:
+        return JSONResponse({"ok": True})
+    row = _users(request).find_user(email=email)
+    if not row or not row.get("password_hash"):
+        return JSONResponse({"ok": True})
+    temp = _temp_password()
+    updated = _users(request).set_user_password(
+        row["user_id"],
+        _hash_password(temp),
+        must_change_password=True,
         email=email,
     )
-    payload["termsVersion"] = TERMS_VERSION
-    return payload
+    if not updated:
+        return JSONResponse({"ok": True})
+    if not _send_temp_password(email, temp):
+        return JSONResponse({"ok": False, "error": "email_unavailable"}, status_code=503)
+    return JSONResponse({"ok": True})
+
+
+@auth_router.post("/api/auth/password/change")
+async def auth_password_change(request: Request):
+    session = read_session(request)
+    if not session:
+        return JSONResponse({"ok": False, "error": "unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    current_password = str(body.get("currentPassword") if isinstance(body, dict) else "")
+    new_password = str(body.get("newPassword") if isinstance(body, dict) else "")
+    if len(new_password) < 8:
+        return JSONResponse({"ok": False, "error": "password_short"}, status_code=400)
+    row = session_user_row(request)
+    if not row or not row.get("password_hash"):
+        return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
+    if not _verify_password(current_password, str(row.get("password_hash") or "")):
+        return JSONResponse({"ok": False, "error": "invalid_current_password"}, status_code=401)
+    current = _users(request).set_user_password(
+        row["user_id"],
+        _hash_password(new_password),
+        must_change_password=False,
+    )
+    if not current:
+        return JSONResponse({"ok": False, "error": "not_found"}, status_code=404)
+    response = JSONResponse({"ok": True, "mustChangePassword": False})
+    _set_session_cookie(response, request, _session_user(current, "password"))
+    return response
 
 
 @auth_router.post("/api/auth/email")
@@ -300,11 +630,19 @@ async def auth_save_email(request: Request):
     email = pick_email(body.get("email") if isinstance(body, dict) else "")
     if not email:
         return JSONResponse({"ok": False}, status_code=400)
-    provider = str(session.get("provider") or "")
-    provider_id = str(session.get("id") or "").split(":", 1)[-1]
-    user = upsert_user(request, provider or "user", provider_id, str(session.get("name") or ""), email)
+    user = _users(request).set_user_email(
+        str(session.get("id") or ""),
+        email,
+        str(session.get("name") or ""),
+    )
+    if not user:
+        return JSONResponse({"ok": False}, status_code=400)
     response = JSONResponse({"ok": True, "email": email})
-    _set_session_cookie(response, request, user)
+    _set_session_cookie(
+        response,
+        request,
+        _session_user(user, str(session.get("provider") or user.get("provider") or "")),
+    )
     return response
 
 
@@ -320,9 +658,8 @@ async def auth_accept_terms(request: Request):
     accepted = body.get("accepted") if isinstance(body, dict) else False
     if accepted is not True:
         return JSONResponse({"ok": False, "error": "required"}, status_code=400)
-    email = session_email(request)
     user_id = str(session.get("id") or "")
-    if not request.app.state.store.access.accept_terms(user_id, email):
+    if not request.app.state.store.access.accept_terms(user_id):
         return JSONResponse({"ok": False, "error": "identity"}, status_code=400)
     return {"ok": True, "termsAccepted": True, "termsVersion": TERMS_VERSION}
 

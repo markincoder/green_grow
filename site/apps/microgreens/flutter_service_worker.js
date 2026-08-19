@@ -1,10 +1,10 @@
-/* Agronizer PWA service worker: installability (fetch) + Web Push.
+﻿/* Agronizer PWA service worker: installability (fetch) + Web Push.
  * Copied over flutter_service_worker.js after `flutter build web`
  * because current Flutter emits an uninstall stub by default.
  */
 'use strict';
 
-const CACHE = 'microgreens-shell-v14';
+const CACHE = 'microgreens-shell-1.0.4+5';
 const PRECACHE = [
   './',
   './index.html',
@@ -97,7 +97,7 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
-/** iOS adds "from {PWA name}" to the title — don't repeat «Микрозелень». */
+/** iOS adds "from {PWA name}" to the title â€” don't repeat Â«ÐœÐ¸ÐºÑ€Ð¾Ð·ÐµÐ»ÐµÐ½ÑŒÂ». */
 function isIosServiceWorker() {
   var ua = (self.navigator && self.navigator.userAgent) || '';
   if (/iPad|iPhone|iPod/.test(ua)) return true;
@@ -110,16 +110,16 @@ function isIosServiceWorker() {
 
 function iosSafeNotificationTitle(raw) {
   var title = (raw || '').trim();
-  if (!isIosServiceWorker()) return title || 'Агронайзер';
-  var app = 'Микрозелень';
-  if (!title || title === app || title === 'Агронайзер') return 'Напоминание';
-  var prefix = app + ' — ';
-  if (title.indexOf(prefix) === 0) return title.slice(prefix.length) || 'Напоминание';
+  if (!isIosServiceWorker()) return title || 'ÐÐ³Ñ€Ð¾Ð½Ð°Ð¹Ð·ÐµÑ€';
+  var app = 'ÐœÐ¸ÐºÑ€Ð¾Ð·ÐµÐ»ÐµÐ½ÑŒ';
+  if (!title || title === app || title === 'ÐÐ³Ñ€Ð¾Ð½Ð°Ð¹Ð·ÐµÑ€') return 'ÐÐ°Ð¿Ð¾Ð¼Ð¸Ð½Ð°Ð½Ð¸Ðµ';
+  var prefix = app + ' â€” ';
+  if (title.indexOf(prefix) === 0) return title.slice(prefix.length) || 'ÐÐ°Ð¿Ð¾Ð¼Ð¸Ð½Ð°Ð½Ð¸Ðµ';
   return title;
 }
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'Агронайзер', body: '', data: {} };
+  let payload = { title: 'ÐÐ³Ñ€Ð¾Ð½Ð°Ð¹Ð·ÐµÑ€', body: '', data: {} };
   try {
     if (event.data) {
       payload = { ...payload, ...event.data.json() };

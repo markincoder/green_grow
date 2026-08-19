@@ -212,7 +212,7 @@ class SettingsScreen extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'Проращивание, рост, полив',
+                            'Рост и полив',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],
@@ -226,61 +226,6 @@ class SettingsScreen extends StatelessWidget {
                                 : AppColors.muted,
                             fontWeight: FontWeight.w700,
                           ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-              SoftPanel(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Замачивание',
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Напомнить о посеве через N часов от старта',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        IconButton.filledTonal(
-                          onPressed: settings.enabled &&
-                                  settings.soakReminderHours > 1
-                              ? () => settings.setSoakReminderHours(
-                                    settings.soakReminderHours - 1,
-                                  )
-                              : null,
-                          icon: const Icon(Icons.remove_rounded),
-                        ),
-                        Expanded(
-                          child: Text(
-                            '${settings.soakReminderHours} ч',
-                            textAlign: TextAlign.center,
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
-                                ?.copyWith(
-                                  color: settings.enabled
-                                      ? AppColors.forest
-                                      : AppColors.muted,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                        ),
-                        IconButton.filledTonal(
-                          onPressed: settings.enabled &&
-                                  settings.soakReminderHours < 72
-                              ? () => settings.setSoakReminderHours(
-                                    settings.soakReminderHours + 1,
-                                  )
-                              : null,
-                          icon: const Icon(Icons.add_rounded),
-                        ),
-                      ],
                     ),
                   ],
                 ),

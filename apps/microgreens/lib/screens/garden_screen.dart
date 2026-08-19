@@ -5,6 +5,7 @@ import '../models/plant.dart';
 import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/stage_icons.dart';
 import 'plant_detail_screen.dart';
 
 class GardenScreen extends StatefulWidget {
@@ -22,7 +23,7 @@ class GardenScreen extends StatefulWidget {
 }
 
 class _GardenScreenState extends State<GardenScreen> {
-  GrowthStage? _stage;
+  _GardenFilter _filter = _GardenFilter.all;
 
   /// Soonest harvest date first.
   static List<GardenPlant> _byHarvestDate(
@@ -44,10 +45,18 @@ class _GardenScreenState extends State<GardenScreen> {
     return sorted;
   }
 
-  int _countFor(GrowthStage stage, DateTime now) {
+  int _countForStage(GrowthStage stage, DateTime now) {
     return widget.store.plants.where((g) {
       final plant = plantById(g.plantId);
       return plant != null && g.stageFor(plant, now) == stage;
+    }).length;
+  }
+
+  int _countDueToday(DateTime now) {
+    return widget.store.plants.where((g) {
+      final plant = plantById(g.plantId);
+      if (plant == null) return false;
+      return g.isStatusActionDueToday(plant, now);
     }).length;
   }
 
@@ -55,20 +64,60 @@ class _GardenScreenState extends State<GardenScreen> {
   Widget build(BuildContext context) {
     final now = DateTime.now();
     final all = _byHarvestDate(widget.store.plants, now);
-    final plants = _stage == null
-        ? all
-        : all.where((g) {
-            final plant = plantById(g.plantId);
-            return plant != null && g.stageFor(plant, now) == _stage;
-          }).toList();
+    final plants = all.where((g) {
+      final plant = plantById(g.plantId);
+      if (plant == null) return false;
+      return switch (_filter) {
+        _GardenFilter.all => true,
+        _GardenFilter.soak => g.stageFor(plant, now) == GrowthStage.soak,
+        _GardenFilter.germinate =>
+          g.stageFor(plant, now) == GrowthStage.germinate,
+        _GardenFilter.grow => g.stageFor(plant, now) == GrowthStage.grow,
+        _GardenFilter.dueToday => g.isStatusActionDueToday(plant, now),
+      };
+    }).toList();
 
     final subtitle = all.isEmpty
         ? 'Пока пусто'
-        : _stage == null
+        : _filter == _GardenFilter.all
             ? '${plants.length} активно'
             : plants.isEmpty
-                ? 'Нет посадок на этой стадии'
-                : '${plants.length} · ${stageLabel(_stage!)}';
+                ? 'Нет посадок по выбранному фильтру'
+                : _filter == _GardenFilter.dueToday
+                    ? '${plants.length} · требуют действия сегодня'
+                    : '${plants.length} · ${stageLabel(switch (_filter) {
+                        _GardenFilter.soak => GrowthStage.soak,
+                        _GardenFilter.germinate => GrowthStage.germinate,
+                        _GardenFilter.grow => GrowthStage.grow,
+                        _ => GrowthStage.grow,
+                      })}';
+
+    const filters = [
+      _FilterChipData(
+        filter: _GardenFilter.all,
+        tooltip: 'Все',
+      ),
+      _FilterChipData(
+        filter: _GardenFilter.soak,
+        glyph: StageGlyphKind.soak,
+        tooltip: 'Замачивание',
+      ),
+      _FilterChipData(
+        filter: _GardenFilter.germinate,
+        glyph: StageGlyphKind.germinate,
+        tooltip: 'Проращивание',
+      ),
+      _FilterChipData(
+        filter: _GardenFilter.grow,
+        glyph: StageGlyphKind.grow,
+        tooltip: 'Рост',
+      ),
+      _FilterChipData(
+        filter: _GardenFilter.dueToday,
+        glyph: StageGlyphKind.dueToday,
+        tooltip: 'Требуют действия сегодня',
+      ),
+    ];
 
     return SafeArea(
       child: Column(
@@ -115,24 +164,24 @@ class _GardenScreenState extends State<GardenScreen> {
                   height: 40,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
-                    itemCount: 1 + GrowthStage.values.length,
+                    itemCount: filters.length,
                     separatorBuilder: (_, __) => const SizedBox(width: 8),
                     itemBuilder: (context, index) {
-                      if (index == 0) {
-                        return _StageChip(
-                          label: 'все',
-                          selected: _stage == null,
-                          onSelected: () => setState(() => _stage = null),
-                        );
-                      }
-                      final stage = GrowthStage.values[index - 1];
-                      final count = _countFor(stage, now);
+                      final chip = filters[index];
+                      final count = switch (chip.filter) {
+                        _GardenFilter.all => all.length,
+                        _GardenFilter.soak => _countForStage(GrowthStage.soak, now),
+                        _GardenFilter.germinate =>
+                          _countForStage(GrowthStage.germinate, now),
+                        _GardenFilter.grow => _countForStage(GrowthStage.grow, now),
+                        _GardenFilter.dueToday => _countDueToday(now),
+                      };
                       return _StageChip(
-                        label: count > 0
-                            ? '${stageLabel(stage)} $count'
-                            : stageLabel(stage),
-                        selected: _stage == stage,
-                        onSelected: () => setState(() => _stage = stage),
+                        glyph: chip.glyph,
+                        tooltip: chip.tooltip,
+                        count: count,
+                        selected: _filter == chip.filter,
+                        onSelected: () => setState(() => _filter = chip.filter),
                       );
                     },
                   ),
@@ -171,7 +220,8 @@ class _GardenScreenState extends State<GardenScreen> {
                       if (plant == null) return const SizedBox.shrink();
                       final stage = gardenPlant.stageFor(plant, now);
                       final progress = gardenPlant.progressFor(plant, now);
-                      final ready = gardenPlant.completesNext(plant);
+                      final actionDueToday =
+                          gardenPlant.isStatusActionDueToday(plant, now);
 
                       return SoftPanel(
                         onTap: () {
@@ -211,10 +261,10 @@ class _GardenScreenState extends State<GardenScreen> {
                                             .textTheme
                                             .bodyMedium
                                             ?.copyWith(
-                                              color: ready
+                                              color: actionDueToday
                                                   ? AppColors.sun
                                                   : AppColors.muted,
-                                              fontWeight: ready
+                                              fontWeight: actionDueToday
                                                   ? FontWeight.w700
                                                   : FontWeight.w500,
                                             ),
@@ -268,27 +318,57 @@ class _GardenScreenState extends State<GardenScreen> {
 
 class _StageChip extends StatelessWidget {
   const _StageChip({
-    required this.label,
+    this.glyph,
+    required this.tooltip,
+    required this.count,
     required this.selected,
     required this.onSelected,
   });
 
-  final String label;
+  final StageGlyphKind? glyph;
+  final String tooltip;
+  final int count;
   final bool selected;
   final VoidCallback onSelected;
 
   @override
   Widget build(BuildContext context) {
+    const color = AppColors.forest;
+    final isAll = glyph == null;
     return ChoiceChip(
-      label: Text(label),
+      tooltip: tooltip,
+      avatar: isAll
+          ? null
+          : StageGlyph(kind: glyph!, size: 18, color: color),
+      label: Text(
+        isAll ? 'Все' : '$count',
+        style: TextStyle(
+          color: color,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+      ),
       selected: selected,
       onSelected: (_) => onSelected(),
       selectedColor: AppColors.sprout,
       backgroundColor: Colors.white,
-      labelStyle: TextStyle(
-        color: AppColors.forest,
-        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-      ),
+      labelPadding: isAll
+          ? const EdgeInsets.symmetric(horizontal: 4)
+          : const EdgeInsets.only(left: 2, right: 6),
+      avatarBoxConstraints: const BoxConstraints(minWidth: 20),
     );
   }
+}
+
+enum _GardenFilter { all, soak, germinate, grow, dueToday }
+
+class _FilterChipData {
+  const _FilterChipData({
+    required this.filter,
+    this.glyph,
+    required this.tooltip,
+  });
+
+  final _GardenFilter filter;
+  final StageGlyphKind? glyph;
+  final String tooltip;
 }

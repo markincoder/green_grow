@@ -99,7 +99,6 @@ def _track_download(request: Request, slug: str | None, kind: str) -> None:
     try:
         get_store(request).access.record_download(
             user_id=str(session.get("id") or ""),
-            email=session_email(request),
             slug=slug,
             kind=kind,
         )
@@ -113,7 +112,6 @@ def _terms_accepted(request: Request) -> bool:
         return False
     return get_store(request).access.has_terms(
         user_id=str(session.get("id") or ""),
-        email=session_email(request),
     )
 
 
@@ -546,7 +544,7 @@ async def create_payment(slug: str, request: Request):
     payment_id = str(data.get("id") or "")
     if not url or not payment_id:
         return JSONResponse({"ok": False, "error": "yookassa"}, status_code=502)
-    store.access.save_payment(payment_id, str(session.get("id") or ""), email, slug)
+    store.access.save_payment(payment_id, str(session.get("id") or ""), slug)
     return {"ok": True, "confirmationUrl": url}
 
 
@@ -571,7 +569,6 @@ async def api_download(request: Request):
         slug = "microgreens"
     count = get_store(request).access.record_download(
         user_id=str(session.get("id") or ""),
-        email=session_email(request),
         slug=slug,
         kind=kind,
     )
@@ -595,7 +592,10 @@ async def activate_access(request: Request):
     if error == "mismatch":
         return JSONResponse({"ok": False, "error": "mismatch"}, status_code=404)
     if error == "expired":
-        return JSONResponse({"ok": False, "error": "expired"}, status_code=410)
+        payload = {"ok": False, "error": "expired"}
+        if row and row.get("expires_at"):
+            payload["expiresAt"] = row["expires_at"]
+        return JSONResponse(payload, status_code=410)
     if error or not row:
         return JSONResponse({"ok": False, "error": "invalid"}, status_code=404)
     return {

@@ -112,6 +112,6 @@ class PlantingLogService {
         GrowthStage.soak => 'замачивание',
         GrowthStage.germinate => 'проращивание',
         GrowthStage.grow => 'рост',
-        GrowthStage.harvest => 'к срезке',
+        GrowthStage.harvest => 'собрать',
       };
 }
