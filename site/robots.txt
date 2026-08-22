@@ -1,0 +1,20 @@
+# https://agronizer.ru/robots.txt
+User-agent: *
+Allow: /
+
+# API, health and push — no HTML for search
+Disallow: /api/
+Disallow: /push/
+Disallow: /health
+
+# Checkout and PWA setup (noindex in HTML as well)
+Disallow: /pay/
+Disallow: /gate/
+
+# App internals: binaries and generated Flutter assets
+Disallow: /apps/*/canvaskit/
+Disallow: /apps/*/assets/
+Disallow: /*.apk$
+
+Sitemap: https://agronizer.ru/sitemap.xml
+Host: https://agronizer.ru

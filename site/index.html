@@ -3,11 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Агронайзер — приложения для домашнего сада</title>
-  <meta name="description" content="Агронайзер — приложения для домашнего сада. Микрозелень: база знаний, циклы и напоминания." />
+  <title>Агронайзер — приложение для выращивания микрозелени</title>
+  <meta name="description" content="Агронайзер — приложение для микрозелени. База сортов, циклы и напоминания о поливе и срезе. Выращивание микрозелени дома на Android и в браузере." />
+  <meta name="keywords" content="агронайзер, микрозелень, выращивание микрозелени, приложение для микрозелени" />
   <meta name="theme-color" content="#1b4332" />
+  <link rel="canonical" href="https://agronizer.ru/" />
   <link rel="icon" type="image/png" href="/apps/microgreens/favicon.png" />
   <link rel="apple-touch-icon" href="/apps/microgreens/icons/Icon-192.png" />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="ru_RU" />
+  <meta property="og:site_name" content="Агронайзер" />
+  <meta property="og:url" content="https://agronizer.ru/" />
+  <meta property="og:title" content="Агронайзер — приложение для выращивания микрозелени" />
+  <meta property="og:description" content="Приложение для микрозелени: база сортов, циклы и напоминания. Выращивание микрозелени дома." />
+  <meta property="og:image" content="https://agronizer.ru/assets/microgreens-hero.png" />
+  <meta property="og:image:alt" content="Выращивание микрозелени дома" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Агронайзер — приложение для микрозелени" />
+  <meta name="twitter:description" content="Выращивание микрозелени дома: база сортов, циклы и напоминания." />
+  <meta name="twitter:image" content="https://agronizer.ru/assets/microgreens-hero.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -133,18 +147,6 @@
       letter-spacing: -0.03em;
       margin-bottom: 0.55rem;
       text-shadow: 0 2px 24px rgba(0, 0, 0, 0.25);
-    }
-
-    .hero__wip {
-      display: inline-block;
-      font-size: 0.78rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      color: var(--forest);
-      background: var(--sun);
-      border-radius: 999px;
-      padding: 0.28rem 0.75rem;
-      margin-bottom: 0.85rem;
     }
 
     .hero__lead {
@@ -883,6 +885,24 @@
       font-size: 0.9rem;
     }
 
+    .footer nav {
+      margin-top: 0.7rem;
+      display: flex;
+      justify-content: center;
+      gap: 1.1rem;
+      flex-wrap: wrap;
+    }
+
+    .footer a {
+      color: rgba(255, 255, 255, 0.88);
+      text-decoration: underline;
+      text-underline-offset: 0.16em;
+    }
+
+    .footer a:hover {
+      color: var(--white);
+    }
+
     @keyframes rise {
       from {
         opacity: 0;
@@ -942,6 +962,41 @@
       }
     }
   </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://agronizer.ru/#organization",
+        "name": "Агронайзер",
+        "url": "https://agronizer.ru/",
+        "logo": "https://agronizer.ru/assets/logo_agronizer.png",
+        "email": "agronizer@yandex.ru"
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://agronizer.ru/#website",
+        "url": "https://agronizer.ru/",
+        "name": "Агронайзер",
+        "inLanguage": "ru-RU",
+        "publisher": { "@id": "https://agronizer.ru/#organization" }
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "Агронайзер",
+        "alternateName": "Микрозелень",
+        "applicationCategory": "LifestyleApplication",
+        "operatingSystem": "Android, Web",
+        "url": "https://agronizer.ru/",
+        "image": "https://agronizer.ru/apps/microgreens/icons/Icon-512.png",
+        "description": "Приложение для микрозелени: выращивание микрозелени дома, база сортов и напоминания.",
+        "inLanguage": "ru-RU",
+        "publisher": { "@id": "https://agronizer.ru/#organization" }
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
   <div class="site-auth">
@@ -964,19 +1019,18 @@
     </div>
     <div class="hero__shade" aria-hidden="true"></div>
     <div class="hero__content">
-      <p class="hero__kicker">Домашний сад</p>
+      <p class="hero__kicker">Выращивание микрозелени</p>
       <h1 class="brand">Агронайзер</h1>
-      <p class="hero__wip">Сайт в разработке</p>
-      <p class="hero__lead">Легкость в делах, порядок в увлечениях</p>
+      <p class="hero__lead">Приложение для микрозелени. Легкость в делах, порядок в увлечениях</p>
       <article class="app-card" id="app">
         <div class="app__head">
-          <img class="app__icon" src="/apps/microgreens/icons/Icon-192.png" alt="" width="48" height="48" />
+          <img class="app__icon" src="/apps/microgreens/icons/Icon-192.png" alt="Микрозелень" width="48" height="48" />
           <div>
-            <p class="app__kicker">Приложение</p>
+            <p class="app__kicker">Приложение для микрозелени</p>
             <h2 class="app__name">Микрозелень</h2>
           </div>
         </div>
-        <p class="app__lead">База знаний, циклы выращивания и напоминания — всё в одном месте.</p>
+        <p class="app__lead">Выращивание микрозелени дома: база сортов, циклы и напоминания.</p>
         <div id="guest-cta">
           <button type="button" class="cta cta--full" id="btn-download">Войти и скачать</button>
           <p class="guest-note">Яндекс ID или VK ID · пароль не нужен</p>
@@ -1017,8 +1071,8 @@
   <section class="story" aria-labelledby="story-title">
     <div class="story__inner">
       <div class="story__copy">
-        <h2 id="story-title">Сад дома, без лишней сложности</h2>
-        <p>Агронайзер подсказывает, что делать сегодня: какой сорт выбрать, когда поливать и когда срезать.</p>
+        <h2 id="story-title">Выращивание микрозелени дома, без лишней сложности</h2>
+        <p>Агронайзер — приложение для микрозелени. Подсказывает, какой сорт выбрать, когда поливать и когда срезать.</p>
         <div class="benefits">
           <div class="benefit">
             <span class="benefit__mark" aria-hidden="true">
@@ -1044,7 +1098,7 @@
             </span>
             <div>
               <strong>Цикл от посева до среза</strong>
-              <span>Весь путь выращивания — в одном приложении.</span>
+              <span>Весь путь выращивания микрозелени — в одном приложении.</span>
             </div>
           </div>
         </div>
@@ -1052,7 +1106,7 @@
       <figure class="story__photo">
         <img
           src="assets/microgreens-story.png"
-          alt="Свежая зелень в контейнерах на свету"
+          alt="Выращивание микрозелени дома в контейнерах на свету"
           width="1200"
           height="1600"
           loading="lazy"
@@ -1063,6 +1117,11 @@
 
   <footer class="footer">
     <p>© Агронайзер</p>
+    <nav aria-label="Документы">
+      <a href="/legal/terms.html">Соглашение</a>
+      <a href="/legal/privacy.html">Конфиденциальность</a>
+      <a href="mailto:agronizer@yandex.ru">agronizer@yandex.ru</a>
+    </nav>
   </footer>
 
   <div class="auth-overlay" id="auth-overlay" role="dialog" aria-modal="true" aria-labelledby="auth-title" hidden>

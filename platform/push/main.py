@@ -621,6 +621,12 @@ def _file_headers(path: Path, slug: str | None = None) -> tuple[str | None, dict
 
     if suffix in {".html", ".htm"}:
         media_type = "text/html; charset=utf-8"
+    if name == "robots.txt" or suffix == ".txt":
+        media_type = "text/plain; charset=utf-8"
+        headers.setdefault("Cache-Control", "no-cache")
+    if name == "sitemap.xml" or suffix == ".xml":
+        media_type = "application/xml; charset=utf-8"
+        headers.setdefault("Cache-Control", "no-cache")
     if suffix == ".apk":
         media_type = "application/vnd.android.package-archive"
         headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
