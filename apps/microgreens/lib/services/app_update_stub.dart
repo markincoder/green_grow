@@ -1,1 +1,1 @@
-Future<void> applyWebAppUpdateImpl() async {}
+Future<bool> applyWebAppUpdateImpl() async => false;

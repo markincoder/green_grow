@@ -42,7 +42,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Ежедневное время Push',
+                  'Время общего напоминания',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 const SizedBox(height: 8),
@@ -189,7 +189,6 @@ class SettingsScreen extends StatelessWidget {
                 child: SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   title: const Text('Включить напоминания'),
-                  subtitle: const Text('Планировать системные Push'),
                   value: settings.enabled,
                   activeThumbColor: AppColors.meadow,
                   onChanged: (v) => _onEnabledChanged(context, v),
@@ -207,13 +206,8 @@ class SettingsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Ежедневное время Push',
+                            'Время общего напоминания',
                             style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Рост и полив',
-                            style: Theme.of(context).textTheme.bodyMedium,
                           ),
                         ],
                       ),

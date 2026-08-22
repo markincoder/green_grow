@@ -202,6 +202,9 @@ class _ActivationCodeFormState extends State<ActivationCodeForm> {
         setState(() => _error = 'Срок этого кода истёк. Оформите доступ на сайте.');
       } else if (err == 'mismatch') {
         setState(() => _error = 'Этот код не привязан к указанной почте.');
+      } else if (err == 'limit') {
+        setState(() =>
+            _error = 'Этот доступ уже активирован на 3 устройствах.');
       } else if (err == 'invalid') {
         setState(() => _error = 'Неверный код или почта. Проверьте данные.');
       } else {

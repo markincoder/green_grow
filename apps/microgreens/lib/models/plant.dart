@@ -290,10 +290,12 @@ class GardenPlant {
     required this.lastWateredAt,
     required this.stage,
     DateTime? stageChangedAt,
+    DateTime? createdAt,
     this.customName,
     this.seedGrams,
     this.notes = '',
-  }) : stageChangedAt = stageChangedAt ?? startedAt;
+  })  : stageChangedAt = stageChangedAt ?? startedAt,
+        createdAt = createdAt ?? startedAt;
 
   final String id;
   final String plantId;
@@ -301,6 +303,8 @@ class GardenPlant {
   DateTime lastWateredAt;
   GrowthStage stage;
   DateTime stageChangedAt;
+  /// When the tray was added to the app. Differs from [startedAt] if dated back.
+  final DateTime createdAt;
   String? customName;
   int? seedGrams;
   String notes;
@@ -346,7 +350,16 @@ class GardenPlant {
     return hours;
   }
 
-  /// Remaining hours until harvest from [now], based on [startedAt] + cycle.
+  /// Catalog hours from entering the current stage until harvest.
+  int plannedHoursUntilHarvest(Plant plant, {required bool useMax}) {
+    if (stage == GrowthStage.harvest) return 0;
+    final current = useMax
+        ? plant.stageDurationHours(stage)
+        : plant.stageDurationHoursMin(stage);
+    return current + hoursOfFollowingStages(plant, useMax: useMax);
+  }
+
+  /// Remaining hours until harvest from [now].
   double remainingHoursToHarvest(
     Plant plant,
     DateTime now, {
@@ -357,11 +370,15 @@ class GardenPlant {
     return hours > 0 ? hours : 0;
   }
 
-  DateTime harvestAt(Plant plant, [DateTime? now]) =>
-      startedAt.add(plant.cycleDuration);
+  /// Upper-bound harvest instant: [stageChangedAt] + max of this and later stages.
+  DateTime harvestAt(Plant plant, [DateTime? now]) => stageChangedAt.add(
+        Duration(hours: plannedHoursUntilHarvest(plant, useMax: true)),
+      );
 
-  DateTime harvestAtMin(Plant plant, [DateTime? now]) =>
-      startedAt.add(plant.cycleDurationMin);
+  /// Earliest harvest: [stageChangedAt] + min of this and later stages.
+  DateTime harvestAtMin(Plant plant, [DateTime? now]) => stageChangedAt.add(
+        Duration(hours: plannedHoursUntilHarvest(plant, useMax: false)),
+      );
 
   /// Calendar days until harvest date (upper bound). <= 0 means today/overdue.
   int daysUntilHarvest(Plant plant, DateTime now) {
@@ -433,7 +450,8 @@ class GardenPlant {
   }
 
   /// Status under the title:
-  /// `прошло 4ч | посеять сегодня в 16ч` /
+  /// `Прошло 4ч - посеять сегодня с 16:00` /
+  /// `посеять` when the sow time is already past /
   /// `Прорастает. На свет 16 авг` /
   /// `Растет. Собрать 15 авг. Проверить воду`
   String statusLine(Plant plant, DateTime now) {
@@ -552,7 +570,7 @@ class GardenPlant {
         ),
       GrowthStage.grow || GrowthStage.harvest => (
           DueActionKind.harvest,
-          startedAt.add(plant.cycleDurationMin),
+          harvestAtMin(plant),
         ),
     };
     return [DueAction(kind: kind, at: at)];
@@ -580,14 +598,18 @@ class GardenPlant {
   DateTime soakReminderAt(Plant plant) => ceilToHour(stageChangedAt)
       .add(Duration(hours: plant.soakHoursForTiming));
 
-  /// `прошло 4ч | посеять сегодня в 16ч`
+  /// `Прошло 4ч - посеять сегодня с 16:00`. If sow time is already past: `посеять`.
   String soakActionLabel(Plant plant, DateTime now) {
+    final due = soakReminderAt(plant);
+    if (due.isBefore(now)) return 'посеять';
+    final when = soakSowWhenLabel(plant, now);
     final elapsed =
         now.difference(stageChangedAt).inHours.clamp(0, 9999);
-    return 'прошло ${elapsed}ч | ${soakSowWhenLabel(plant, now)}';
+    if (elapsed <= 0) return when;
+    return 'Прошло ${elapsed}ч - $when';
   }
 
-  /// `посеять сегодня в 16ч`
+  /// `посеять сегодня с 16:00`
   String soakSowWhenLabel(Plant plant, DateTime now) {
     final due = soakReminderAt(plant);
     final days = _calendarDaysUntil(due, now);
@@ -597,7 +619,7 @@ class GardenPlant {
             ? 'завтра'
             : formatStartDate(DateTime(due.year, due.month, due.day))
                 .replaceAll('.', '');
-    return 'посеять $dayPart в ${due.hour}ч';
+    return 'посеять $dayPart с ${due.hour}:00';
   }
 
   bool get isInGrowStage => stage == GrowthStage.grow;
@@ -647,6 +669,7 @@ class GardenPlant {
         'lastWateredAt': lastWateredAt.toIso8601String(),
         'stage': stage.name,
         'stageChangedAt': stageChangedAt.toIso8601String(),
+        'createdAt': createdAt.toIso8601String(),
         if (customName != null) 'customName': customName,
         if (seedGrams != null) 'seedGrams': seedGrams,
         'notes': notes,
@@ -663,6 +686,7 @@ class GardenPlant {
         ? GrowthStage.values.byName(stageName)
         : GrowthStage.germinate;
     final stageChangedRaw = json['stageChangedAt'] as String?;
+    final createdRaw = json['createdAt'] as String?;
     return GardenPlant(
       id: json['id'] as String,
       plantId: json['plantId'] as String,
@@ -671,6 +695,7 @@ class GardenPlant {
       stage: stage,
       stageChangedAt:
           stageChangedRaw != null ? DateTime.parse(stageChangedRaw) : started,
+      createdAt: createdRaw != null ? DateTime.parse(createdRaw) : started,
       customName: json['customName'] as String?,
       seedGrams: json['seedGrams'] as int?,
       notes: json['notes'] as String? ?? '',

@@ -19,14 +19,46 @@
   <link rel="icon" type="image/png" href="favicon.png"/>
 
   <title>Микрозелень</title>
-  <link rel="manifest" href="manifest.json">
-  <script src="push_client.js?v=sub27"></script>
+  <link rel="manifest" href="manifest.json" type="application/manifest+json">
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #F3FAF5;
+    }
+    #agronizer-splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #F3FAF5;
+      z-index: 9999;
+    }
+    #agronizer-splash img {
+      width: 96px;
+      height: 96px;
+    }
+  </style>
+  <script src="push_client.js?v=sub27" defer></script>
   <!-- Icon install on this page (SW scope). Chrome uses beforeinstallprompt. -->
-  <script src="setup_gate.js?v=gate64"></script>
+  <script src="setup_gate.js?v=gate66" defer></script>
+  <script src="pwa_update.js?v=1.0.7+8-f9c38f78" defer></script>
+  <script src="flutter_bootstrap.js?v=1.0.7+8-f9c38f78" async></script>
 </head>
 <body>
-  <!-- CRITICAL: load Flutter here so Home Screen shortcuts never open a blank page.
-       setup_gate.js must NOT be the only way to start the app. -->
-  <script src="flutter_bootstrap.js" async></script>
+  <div id="agronizer-splash">
+    <img src="icons/Icon-192.png" alt="">
+  </div>
+  <script>
+    (function () {
+      function hide() {
+        var el = document.getElementById('agronizer-splash');
+        if (el) el.remove();
+      }
+      window.addEventListener('flutter-first-frame', hide);
+      setTimeout(hide, 20000);
+    })();
+  </script>
 </body>
 </html>

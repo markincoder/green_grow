@@ -1,10 +1,13 @@
-﻿/* Agronizer PWA service worker: installability (fetch) + Web Push.
+/* Agronizer PWA service worker: installability (fetch) + Web Push.
  * Copied over flutter_service_worker.js after `flutter build web`
  * because current Flutter emits an uninstall stub by default.
+ *
+ * Cache-first (stale-while-revalidate) so the installed PWA opens from disk
+ * instead of waiting on the network. Updates apply in the background.
  */
 'use strict';
 
-const CACHE = 'microgreens-shell-1.0.4+5';
+const CACHE = 'microgreens-shell-1.0.7+8-f9c38f78';
 const PRECACHE = [
   './',
   './index.html',
@@ -12,7 +15,6 @@ const PRECACHE = [
   './favicon.png',
   './icons/Icon-192.png',
   './icons/Icon-512.png',
-  './flutter_bootstrap.js',
 ];
 
 self.addEventListener('install', (event) => {
@@ -22,6 +24,10 @@ self.addEventListener('install', (event) => {
       .then((cache) => cache.addAll(PRECACHE).catch(() => undefined))
       .then(() => self.skipWaiting()),
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -36,68 +42,73 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Required for Chrome "Install app" / Add to Home Screen.
-// Network-first for HTML/JS so setup_gate + manifest updates are not stuck.
+async function staleWhileRevalidate(req, { fallbackToIndex }) {
+  const cache = await caches.open(CACHE);
+  const cached = await cache.match(req);
+  const network = fetch(req)
+    .then((res) => {
+      if (res && res.ok && res.type === 'basic') {
+        cache.put(req, res.clone()).catch(() => undefined);
+      }
+      return res;
+    })
+    .catch(() => undefined);
+  if (cached) return cached;
+  const fresh = await network;
+  if (fresh) return fresh;
+  if (fallbackToIndex) {
+    const shell = await cache.match('./index.html');
+    if (shell) return shell;
+  }
+  return Response.error();
+}
+
+async function networkFirst(req, timeoutMs) {
+  const cache = await caches.open(CACHE);
+  const cached = cache.match(req);
+  try {
+    const fresh = await Promise.race([
+      fetch(req),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('timeout')), timeoutMs);
+      }),
+    ]);
+    if (fresh && fresh.ok && fresh.type === 'basic') {
+      cache.put(req, fresh.clone()).catch(() => undefined);
+      return fresh;
+    }
+  } catch (_) {}
+  const fallback = await cached;
+  if (fallback) return fallback;
+  return fetch(req);
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
 
-  const url = new URL(req.url);
+  let url;
+  try {
+    url = new URL(req.url);
+  } catch (_) {
+    return;
+  }
+  if (url.origin !== self.location.origin) return;
+
   const isDoc =
     req.mode === 'navigate' ||
     (req.headers.get('accept') || '').includes('text/html');
-  const isSetupJs =
-    url.pathname.endsWith('/setup_gate.js') ||
-    url.pathname.endsWith('/push_client.js') ||
-    url.pathname.endsWith('/manifest.json') ||
-    url.pathname.endsWith('/index.html');
+  const isVersion = url.pathname.endsWith('/version.json');
 
-  if (isDoc || isSetupJs) {
-    event.respondWith(
-      (async () => {
-        try {
-          const fresh = await fetch(req);
-          return fresh;
-        } catch (_) {
-          const cached = await caches.match(req);
-          if (cached) return cached;
-          if (isDoc) {
-            const shell = await caches.match('./index.html');
-            if (shell) return shell;
-          }
-          throw _;
-        }
-      })(),
-    );
+  if (isVersion) {
+    event.respondWith(networkFirst(req, 2500));
     return;
   }
 
-  event.respondWith(
-    (async () => {
-      try {
-        const fresh = await fetch(req);
-        if (
-          fresh.ok &&
-          url.origin === self.location.origin &&
-          (url.pathname.endsWith('.js') ||
-            url.pathname.endsWith('.wasm') ||
-            url.pathname.endsWith('.png') ||
-            url.pathname.endsWith('.json'))
-        ) {
-          const cache = await caches.open(CACHE);
-          cache.put(req, fresh.clone()).catch(() => undefined);
-        }
-        return fresh;
-      } catch (_) {
-        const cached = await caches.match(req);
-        if (cached) return cached;
-        throw _;
-      }
-    })(),
-  );
+  event.respondWith(staleWhileRevalidate(req, { fallbackToIndex: isDoc }));
 });
 
-/** iOS adds "from {PWA name}" to the title â€” don't repeat Â«ÐœÐ¸ÐºÑ€Ð¾Ð·ÐµÐ»ÐµÐ½ÑŒÂ». */
+/** iOS adds "from {PWA name}" to the title — don't repeat «Микрозелень». */
 function isIosServiceWorker() {
   var ua = (self.navigator && self.navigator.userAgent) || '';
   if (/iPad|iPhone|iPod/.test(ua)) return true;
@@ -110,16 +121,16 @@ function isIosServiceWorker() {
 
 function iosSafeNotificationTitle(raw) {
   var title = (raw || '').trim();
-  if (!isIosServiceWorker()) return title || 'ÐÐ³Ñ€Ð¾Ð½Ð°Ð¹Ð·ÐµÑ€';
-  var app = 'ÐœÐ¸ÐºÑ€Ð¾Ð·ÐµÐ»ÐµÐ½ÑŒ';
-  if (!title || title === app || title === 'ÐÐ³Ñ€Ð¾Ð½Ð°Ð¹Ð·ÐµÑ€') return 'ÐÐ°Ð¿Ð¾Ð¼Ð¸Ð½Ð°Ð½Ð¸Ðµ';
-  var prefix = app + ' â€” ';
-  if (title.indexOf(prefix) === 0) return title.slice(prefix.length) || 'ÐÐ°Ð¿Ð¾Ð¼Ð¸Ð½Ð°Ð½Ð¸Ðµ';
+  if (!isIosServiceWorker()) return title || 'Агронайзер';
+  var app = 'Микрозелень';
+  if (!title || title === app || title === 'Агронайзер') return 'Напоминание';
+  var prefix = app + ' — ';
+  if (title.indexOf(prefix) === 0) return title.slice(prefix.length) || 'Напоминание';
   return title;
 }
 
 self.addEventListener('push', (event) => {
-  let payload = { title: 'ÐÐ³Ñ€Ð¾Ð½Ð°Ð¹Ð·ÐµÑ€', body: '', data: {} };
+  let payload = { title: 'Агронайзер', body: '', data: {} };
   try {
     if (event.data) {
       payload = { ...payload, ...event.data.json() };

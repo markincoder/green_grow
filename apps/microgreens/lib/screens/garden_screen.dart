@@ -82,7 +82,7 @@ class _GardenScreenState extends State<GardenScreen> {
         : _filter == _GardenFilter.all
             ? '${plants.length} активно'
             : plants.isEmpty
-                ? 'Нет посадок по выбранному фильтру'
+                ? 'Нет активных по выбранному фильтру'
                 : _filter == _GardenFilter.dueToday
                     ? '${plants.length} · требуют действия сегодня'
                     : '${plants.length} · ${stageLabel(switch (_filter) {
@@ -202,7 +202,7 @@ class _GardenScreenState extends State<GardenScreen> {
                           Text(
                             all.isEmpty
                                 ? 'Нажмите «Выращивать» — выберите культуру в базе знаний.'
-                                : 'На этой стадии пока никого нет.',
+                                : 'Нет активных',
                             textAlign: TextAlign.center,
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),

@@ -19,7 +19,7 @@ import httpx
 
 from store import Store
 from access import paid_period_label
-from auth import auth_router, pick_email, read_session, request_origin, session_email
+from auth import auth_router, pick_email, published_app_info, read_session, request_origin, session_email
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 
@@ -588,9 +588,16 @@ async def activate_access(request: Request):
     slug = str(body.get("slug") or "microgreens")
     if not APP_SLUG.match(slug):
         slug = "microgreens"
-    error, row = get_store(request).access.activate_code(code, email, slug)
+    error, row = get_store(request).access.activate_code(
+        code,
+        email,
+        slug,
+        record=not bool(body.get("checkOnly")),
+    )
     if error == "mismatch":
         return JSONResponse({"ok": False, "error": "mismatch"}, status_code=404)
+    if error == "limit":
+        return JSONResponse({"ok": False, "error": "limit"}, status_code=403)
     if error == "expired":
         payload = {"ok": False, "error": "expired"}
         if row and row.get("expires_at"):
@@ -612,16 +619,31 @@ def _file_headers(path: Path, slug: str | None = None) -> tuple[str | None, dict
     suffix = path.suffix.lower()
     name = path.name.lower()
 
+    if suffix in {".html", ".htm"}:
+        media_type = "text/html; charset=utf-8"
     if suffix == ".apk":
         media_type = "application/vnd.android.package-archive"
-        headers["Cache-Control"] = "public, max-age=3600"
+        headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        info = published_app_info("")
+        version = str(info.get("appVersion") or "").strip()
+        filename = f"microgreens-{version}.apk" if version else "microgreens.apk"
+        headers["Content-Disposition"] = f'attachment; filename="{filename}"'
     if suffix in {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}:
         # Logos/icons keep the same URL after rebuild; do not pin them for a week.
         headers.setdefault("Cache-Control", "no-cache")
     elif "assets" in path.parts:
         headers.setdefault("Cache-Control", "public, max-age=604800")
+    if name in {
+        "index.html",
+        "flutter_bootstrap.js",
+        "flutter.js",
+        "main.dart.js",
+        "version.json",
+        "pwa_update.js",
+    }:
+        headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     if name == "manifest.json":
-        media_type = "application/json; charset=utf-8"
+        media_type = "application/manifest+json; charset=utf-8"
         headers.setdefault("Cache-Control", "no-cache")
     if name == SW_NAME and slug:
         media_type = "application/javascript; charset=utf-8"

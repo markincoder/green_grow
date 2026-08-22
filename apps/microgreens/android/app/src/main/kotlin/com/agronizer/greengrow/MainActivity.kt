@@ -1,4 +1,4 @@
-package com.greengrow.green_grow
+package com.agronizer.greengrow
 
 import android.content.BroadcastReceiver
 import android.content.ContentValues
@@ -18,7 +18,7 @@ import java.io.File
 import java.io.FileOutputStream
 
 class MainActivity : FlutterActivity() {
-    private val channelName = "com.greengrow.green_grow/device"
+    private val channelName = "com.agronizer.greengrow/device"
     private var deviceChannel: MethodChannel? = null
 
     private val timeReceiver = object : BroadcastReceiver() {

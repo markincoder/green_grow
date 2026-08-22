@@ -133,6 +133,9 @@ class AccessApi {
     if (err == 'mismatch') {
       return const AccessActivateResult._(error: 'mismatch');
     }
+    if (err == 'limit' || res.statusCode == 403) {
+      return const AccessActivateResult._(error: 'limit');
+    }
     if (res.statusCode >= 400 || data['ok'] != true) {
       return const AccessActivateResult._(error: 'invalid');
     }
@@ -156,6 +159,7 @@ class AccessApi {
               'code': digits,
               'email': mail,
               'slug': 'microgreens',
+              'checkOnly': true,
             }),
           )
           .timeout(_timeout);

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:url_launcher/url_launcher.dart';
@@ -24,13 +25,17 @@ class ReminderService {
   static const _digestHorizonDays = 21;
   static const _waterTitle = 'Вся зелень';
   static const _waterAction = 'проверить воду';
-  static const _deviceChannel = MethodChannel('com.greengrow.green_grow/device');
+  static const _deviceChannel = MethodChannel('com.agronizer.greengrow/device');
 
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
+  static const _firedPrefsKey = 'tray_push_fired_v1';
+
   bool _ready = false;
   Future<bool>? _permissionInFlight;
+  Future<void> _syncTail = Future.value();
+  final Set<String> _firedDue = {};
 
   bool get isReady => _ready;
 
@@ -86,6 +91,7 @@ class ReminderService {
         ),
       );
 
+      await _loadFiredDue();
       _ready = true;
     } catch (e, st) {
       debugPrint('ReminderService.init failed: $e\n$st');
@@ -354,6 +360,7 @@ class ReminderService {
       required DueActionKind? kind,
       required String? gardenId,
       DateTime? dueAt,
+      DateTime? createdAt,
     }) =>
         TodayReminderItem(
           key: key,
@@ -362,6 +369,7 @@ class ReminderService {
           kind: kind,
           gardenId: gardenId,
           dueAt: dueAt,
+          createdAt: createdAt,
           done: dismissedKeys.contains(key),
         );
 
@@ -384,6 +392,7 @@ class ReminderService {
             kind: DueActionKind.sow,
             gardenId: garden.id,
             dueAt: garden.soakReminderAt(plant),
+            createdAt: garden.createdAt,
           ),
         );
         continue;
@@ -406,6 +415,8 @@ class ReminderService {
             actionLabel: action.message,
             kind: DueActionKind.toLight,
             gardenId: garden.id,
+            dueAt: when,
+            createdAt: garden.createdAt,
           ),
         );
         continue;
@@ -426,9 +437,10 @@ class ReminderService {
               key: key,
               title: garden.titleWithDate(plant),
               actionLabel: due.message,
-              kind: DueActionKind.harvest,
-              gardenId: garden.id,
-            ),
+            kind: DueActionKind.harvest,
+            gardenId: garden.id,
+            createdAt: garden.createdAt,
+          ),
           );
         }
       }
@@ -510,6 +522,7 @@ class ReminderService {
     ).where((e) {
       if (e.done) return false;
       if (e.dueAt != null && e.dueAt!.isAfter(digestAt)) return false;
+      if (skipMissedPhasePush(e)) return false;
       return true;
     });
     if (items.isEmpty) return null;
@@ -563,7 +576,13 @@ class ReminderService {
         );
         if (dismissedKeys.contains(key)) continue;
         final when = garden.soakReminderAt(plant);
-        if (!when.isAfter(now)) continue;
+        if (skipMissedPhasePushFor(
+          kind: DueActionKind.sow,
+          dueAt: when,
+          createdAt: garden.createdAt,
+        )) {
+          continue;
+        }
         items.add(
           WebPushScheduleItem(
             id: 'soak-${garden.id}',
@@ -585,7 +604,13 @@ class ReminderService {
         );
         if (dismissedKeys.contains(key)) continue;
         final when = garden.germinateReminderAt(plant);
-        if (!when.isAfter(now)) continue;
+        if (skipMissedPhasePushFor(
+          kind: DueActionKind.toLight,
+          dueAt: when,
+          createdAt: garden.createdAt,
+        )) {
+          continue;
+        }
         final action = DueAction(kind: DueActionKind.toLight, at: when);
         items.add(
           WebPushScheduleItem(
@@ -635,6 +660,26 @@ class ReminderService {
     required TimeOfDay reminderTime,
     required bool enabled,
     Set<String> dismissedKeys = const {},
+  }) {
+    // Serialize: overlapping cancel/reschedule dropped soak alarms when the
+    // app went to background (lifecycle inactive) or access rechecked.
+    final job = _syncTail.then(
+      (_) => _syncUnlocked(
+        plants: plants,
+        reminderTime: reminderTime,
+        enabled: enabled,
+        dismissedKeys: dismissedKeys,
+      ),
+    );
+    _syncTail = job.catchError((_) {});
+    return job;
+  }
+
+  Future<void> _syncUnlocked({
+    required List<GardenPlant> plants,
+    required TimeOfDay reminderTime,
+    required bool enabled,
+    required Set<String> dismissedKeys,
   }) async {
     if (kIsWeb) {
       await _syncWebPush(
@@ -647,14 +692,17 @@ class ReminderService {
     }
     if (!_ready || !isSupportedPlatform) return;
     try {
-      final pending = await _plugin.pendingNotificationRequests();
-      for (final request in pending) {
-        await _plugin.cancel(request.id);
+      if (!enabled) {
+        final pending = await _plugin.pendingNotificationRequests();
+        for (final request in pending) {
+          await _plugin.cancel(request.id);
+        }
+        return;
       }
-      if (!enabled) return;
 
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
+      final keepIds = <int>{};
 
       for (final garden in plants) {
         if (garden.stage != GrowthStage.soak) continue;
@@ -666,11 +714,22 @@ class ReminderService {
           today,
         );
         if (dismissedKeys.contains(key)) continue;
+        final when = garden.soakReminderAt(plant);
+        if (skipMissedPhasePushFor(
+          kind: DueActionKind.sow,
+          dueAt: when,
+          createdAt: garden.createdAt,
+        )) {
+          continue;
+        }
+        final id = notificationIdFor(garden.id, DueActionKind.sow);
+        keepIds.add(id);
         try {
           await _scheduleSoak(
             garden: garden,
             plant: plant,
             now: now,
+            id: id,
           );
         } catch (e, st) {
           debugPrint('ReminderService: soak ${garden.id}: $e\n$st');
@@ -687,11 +746,22 @@ class ReminderService {
           today,
         );
         if (dismissedKeys.contains(key)) continue;
+        final when = garden.germinateReminderAt(plant);
+        if (skipMissedPhasePushFor(
+          kind: DueActionKind.toLight,
+          dueAt: when,
+          createdAt: garden.createdAt,
+        )) {
+          continue;
+        }
+        final id = notificationIdFor(garden.id, DueActionKind.toLight);
+        keepIds.add(id);
         try {
           await _scheduleGerminate(
             garden: garden,
             plant: plant,
             now: now,
+            id: id,
           );
         } catch (e, st) {
           debugPrint('ReminderService: germinate ${garden.id}: $e\n$st');
@@ -717,15 +787,23 @@ class ReminderService {
           digestAt: when,
         );
         if (body == null) continue;
+        final id = digestIdFor(day);
+        keepIds.add(id);
         try {
           await _scheduleAt(
-            id: _digestId(day),
+            id: id,
             body: body,
             when: _toTz(when),
           );
         } catch (e, st) {
           debugPrint('ReminderService: digest $day: $e\n$st');
         }
+      }
+
+      final pending = await _plugin.pendingNotificationRequests();
+      for (final request in pending) {
+        if (keepIds.contains(request.id)) continue;
+        await _plugin.cancel(request.id);
       }
 
       final count = await pendingCount();
@@ -739,15 +817,17 @@ class ReminderService {
     required GardenPlant garden,
     required Plant plant,
     required DateTime now,
+    required int id,
   }) async {
     final when = garden.soakReminderAt(plant);
-    if (!when.isAfter(now)) return;
     final text =
         '${garden.titleWithDate(plant)}\n${garden.soakActionLabel(plant, when)}';
-    await _scheduleAt(
-      id: _notificationId(garden.id, DueActionKind.sow),
+    debugPrint('ReminderService: soak ${garden.id} at $when (now=$now)');
+    await _deliverTrayPush(
+      id: id,
       body: text,
-      when: _toTz(when),
+      when: when,
+      now: now,
     );
   }
 
@@ -755,17 +835,103 @@ class ReminderService {
     required GardenPlant garden,
     required Plant plant,
     required DateTime now,
+    required int id,
   }) async {
     final when = garden.germinateReminderAt(plant);
-    if (!when.isAfter(now)) return;
     final action = DueAction(kind: DueActionKind.toLight, at: when);
     final text = garden.pushLine(plant, action);
-    await _scheduleAt(
-      id: _notificationId(garden.id, DueActionKind.toLight),
+    await _deliverTrayPush(
+      id: id,
       body: text,
-      when: _toTz(when),
+      when: when,
+      now: now,
     );
   }
+
+  /// Same clock as the home-page reminder: catalog min hours, ceiled to the hour.
+  /// If that instant is already now (clock jumped / missed alarm), show immediately.
+  Future<void> _deliverTrayPush({
+    required int id,
+    required String body,
+    required DateTime when,
+    required DateTime now,
+  }) async {
+    if (when.isAfter(now)) {
+      await _scheduleAt(
+        id: id,
+        body: body,
+        when: _toTz(when),
+      );
+      return;
+    }
+    if (_firedDue.contains(_firedToken(id, when))) return;
+    try {
+      await _plugin.cancel(id);
+      await _plugin.show(
+        id,
+        'Микрозелень',
+        body,
+        _pushDetailsWithBody(body),
+      );
+      _firedDue.add(_firedToken(id, when));
+      await _persistFiredDue();
+      debugPrint('ReminderService: showed overdue id=$id at $when');
+    } catch (e, st) {
+      debugPrint('ReminderService: overdue id=$id: $e\n$st');
+    }
+  }
+
+  static String _firedToken(int id, DateTime when) =>
+      '$id@${when.millisecondsSinceEpoch}';
+
+  Future<void> _loadFiredDue() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      _firedDue
+        ..clear()
+        ..addAll(prefs.getStringList(_firedPrefsKey) ?? const []);
+    } catch (_) {}
+  }
+
+  Future<void> _persistFiredDue() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      var list = _firedDue.toList();
+      if (list.length > 80) list = list.sublist(list.length - 80);
+      await prefs.setStringList(_firedPrefsKey, list);
+    } catch (_) {}
+  }
+
+  /// True when soak/to-light was already due before the tray was added
+  /// (backdated start). Those phases must not send push.
+  @visibleForTesting
+  static bool skipMissedPhasePushFor({
+    required DueActionKind kind,
+    required DateTime dueAt,
+    required DateTime createdAt,
+  }) {
+    if (kind != DueActionKind.sow && kind != DueActionKind.toLight) {
+      return false;
+    }
+    return !dueAt.isAfter(createdAt);
+  }
+
+  static bool skipMissedPhasePush(TodayReminderItem item) {
+    final dueAt = item.dueAt;
+    final createdAt = item.createdAt;
+    final kind = item.kind;
+    if (dueAt == null || createdAt == null || kind == null) return false;
+    return skipMissedPhasePushFor(
+      kind: kind,
+      dueAt: dueAt,
+      createdAt: createdAt,
+    );
+  }
+
+  /// True when the home-page soak/germinate time has been reached.
+  @visibleForTesting
+  static bool isTrayPushDue(DateTime reminderAt, DateTime now) =>
+      !reminderAt.isAfter(now);
 
   tz.TZDateTime _toTz(DateTime when) {
     // Interpret wall-clock components in the configured local location.
@@ -840,12 +1006,17 @@ class ReminderService {
     throw StateError('Не удалось запланировать id=$id: $lastError');
   }
 
-  int _notificationId(String gardenId, DueActionKind kind) {
-    return Object.hash(gardenId, kind.index) & 0x7fffffff;
+  /// Tray action alarms: 0x1xxxxxxx. Must not overlap digest ids.
+  @visibleForTesting
+  static int notificationIdFor(String gardenId, DueActionKind kind) {
+    return 0x10000000 | (Object.hash(gardenId, kind.index) & 0x0fffffff);
   }
 
-  int _digestId(DateTime day) {
-    return Object.hash('digest', day.year, day.month, day.day) & 0x7fffffff;
+  /// Daily digest alarms: 0x2xxxxxxx.
+  @visibleForTesting
+  static int digestIdFor(DateTime day) {
+    return 0x20000000 |
+        (Object.hash(day.year, day.month, day.day) & 0x0fffffff);
   }
 }
 
@@ -857,6 +1028,7 @@ class TodayReminderItem {
     required this.kind,
     required this.gardenId,
     this.dueAt,
+    this.createdAt,
     this.done = false,
   });
 
@@ -873,6 +1045,9 @@ class TodayReminderItem {
 
   /// When set, daily digest waits until this moment (catalog min hours).
   final DateTime? dueAt;
+
+  /// Tray add time — missed soak/to-light before this is not pushed.
+  final DateTime? createdAt;
 
   /// Checked off on the home list; still shown, not sent in push.
   final bool done;

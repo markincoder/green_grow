@@ -14,7 +14,8 @@ from typing import Any
 
 from db import DbConn, connect, default_database_url, describe_url
 
-ACCESS_SELECT = "code, purchased_at, expires_at, activated_at, slug, user_id, payment_id"
+ACCESS_SELECT = "code, purchased_at, expires_at, activated_at, activation_count, slug, user_id, payment_id"
+MAX_ACTIVATIONS_PER_USER = 3
 DOWNLOAD_SELECT = (
     "payment_id, user_id, slug, kind, status, created_at, downloaded_at, download_count"
 )
@@ -46,6 +47,7 @@ CREATE TABLE IF NOT EXISTS access_codes (
   purchased_at TEXT NOT NULL,
   expires_at TEXT,
   activated_at TEXT,
+  activation_count INTEGER NOT NULL DEFAULT 0,
   slug TEXT NOT NULL DEFAULT 'microgreens',
   user_id TEXT,
   payment_id TEXT UNIQUE
@@ -103,6 +105,7 @@ CREATE TABLE IF NOT EXISTS access_codes (
   purchased_at VARCHAR(64) NOT NULL,
   expires_at VARCHAR(64),
   activated_at VARCHAR(64),
+  activation_count INTEGER NOT NULL DEFAULT 0,
   slug VARCHAR(64) NOT NULL DEFAULT 'microgreens',
   user_id VARCHAR(255),
   payment_id VARCHAR(255),
@@ -280,6 +283,11 @@ def _row_dict(row: Any) -> dict[str, Any] | None:
             data["download_count"] = int(data.get("download_count") or 0)
         except (TypeError, ValueError):
             data["download_count"] = 0
+    if "activation_count" in data:
+        try:
+            data["activation_count"] = max(0, int(data.get("activation_count") or 0))
+        except (TypeError, ValueError):
+            data["activation_count"] = 0
     return data
 
 
@@ -311,6 +319,19 @@ class AccessDB:
                 db.execute(f"ALTER TABLE access_codes ADD COLUMN expires_at {col_type}")
             if "activated_at" not in cols:
                 db.execute(f"ALTER TABLE access_codes ADD COLUMN activated_at {col_type}")
+            if "activation_count" not in cols:
+                db.execute(
+                    "ALTER TABLE access_codes ADD COLUMN activation_count INTEGER NOT NULL DEFAULT 0"
+                )
+                db.execute(
+                    """
+                    UPDATE access_codes
+                    SET activation_count = 1
+                    WHERE activation_count = 0
+                      AND activated_at IS NOT NULL
+                      AND activated_at != ''
+                    """
+                )
             self._ensure_download_columns(db, col_type)
             if db.kind == "mysql":
                 self._ensure_mysql_indexes(db)
@@ -1114,7 +1135,12 @@ class AccessDB:
                 db.close()
 
     def activate_code(
-        self, code: str, email: str, slug: str = "microgreens"
+        self,
+        code: str,
+        email: str,
+        slug: str = "microgreens",
+        *,
+        record: bool = True,
     ) -> tuple[str | None, dict[str, Any] | None]:
         digits = "".join(ch for ch in (code or "") if ch.isdigit())
         mail = (email or "").strip()
@@ -1133,8 +1159,28 @@ class AccessDB:
             return "expired", row
         if not is_active(row):
             return "expired", row
-        # Already activated — keep first activation dates, do not renew.
+        slug = slug or "microgreens"
+        # Status check (app launch) must not consume an activation slot.
+        if not record:
+            if row.get("activated_at") and not row.get("expires_at"):
+                row["expires_at"] = expires_iso(str(row.get("activated_at")))
+            return None, row
+        # Already activated — keep first activation dates, count this use.
         if row.get("activated_at"):
+            with self._lock:
+                db = self._connect()
+                try:
+                    if self._user_activation_total(db, row, slug) >= MAX_ACTIVATIONS_PER_USER:
+                        db.commit()
+                        return "limit", row
+                    fresh = self._increment_activation(db, digits, slug)
+                    db.commit()
+                finally:
+                    db.close()
+            if fresh:
+                if not fresh.get("expires_at"):
+                    fresh["expires_at"] = expires_iso(str(fresh.get("activated_at")))
+                return None, fresh
             if not row.get("expires_at"):
                 row["expires_at"] = expires_iso(str(row.get("activated_at")))
             return None, row
@@ -1147,38 +1193,90 @@ class AccessDB:
         with self._lock:
             db = self._connect()
             try:
+                if self._user_activation_total(db, row, slug) >= MAX_ACTIVATIONS_PER_USER:
+                    db.commit()
+                    return "limit", row
                 cur = db.execute(
                     """
                     UPDATE access_codes
-                    SET activated_at = ?, expires_at = ?
+                    SET activated_at = ?, expires_at = ?,
+                        activation_count = COALESCE(activation_count, 0) + 1
                     WHERE code = ? AND slug = ? AND activated_at IS NULL
                     """,
-                    (activated_at, expires_at, digits, slug or "microgreens"),
+                    (activated_at, expires_at, digits, slug),
                 )
-                # Another request may have activated first — reload stored dates.
+                # Another request may have activated first — count this use too.
                 if not cur.rowcount:
-                    fresh = _row_dict(
-                        db.execute(
-                            f"""
-                            SELECT {ACCESS_SELECT}
-                            FROM access_codes
-                            WHERE code = ? AND slug = ?
-                            ORDER BY id DESC LIMIT 1
-                            """,
-                            (digits, slug or "microgreens"),
-                        ).fetchone()
-                    )
+                    if self._user_activation_total(db, row, slug) >= MAX_ACTIVATIONS_PER_USER:
+                        db.commit()
+                        return "limit", row
+                    fresh = self._increment_activation(db, digits, slug)
                     db.commit()
                     if fresh and fresh.get("activated_at"):
                         if not fresh.get("expires_at"):
                             fresh["expires_at"] = expires_iso(str(fresh.get("activated_at")))
                         return None, fresh
                 db.commit()
+                fresh = self._lookup_code_row(db, digits, slug)
             finally:
                 db.close()
+        if fresh:
+            return None, fresh
         row["activated_at"] = activated_at
         row["expires_at"] = expires_at
+        row["activation_count"] = int(row.get("activation_count") or 0) + 1
         return None, row
+
+    def _user_activation_total(
+        self, db: DbConn, row: dict[str, Any], slug: str
+    ) -> int:
+        """Activations billed to this purchaser. Expired older codes do not count."""
+        uid = str(row.get("user_id") or "").strip()
+        current = str(row.get("code") or "")
+        if not uid:
+            return int(row.get("activation_count") or 0)
+        total = 0
+        for raw in db.execute(
+            f"""
+            SELECT {ACCESS_SELECT}
+            FROM access_codes
+            WHERE user_id = ? AND slug = ?
+            """,
+            (uid, slug),
+        ).fetchall():
+            item = _row_dict(raw)
+            if not item:
+                continue
+            if str(item.get("code") or "") != current and not is_active(item):
+                continue
+            total += int(item.get("activation_count") or 0)
+        return total
+
+    def _lookup_code_row(self, db: DbConn, digits: str, slug: str) -> dict[str, Any] | None:
+        return _row_dict(
+            db.execute(
+                f"""
+                SELECT {ACCESS_SELECT}
+                FROM access_codes
+                WHERE code = ? AND slug = ?
+                ORDER BY id DESC LIMIT 1
+                """,
+                (digits, slug),
+            ).fetchone()
+        )
+
+    def _increment_activation(
+        self, db: DbConn, digits: str, slug: str
+    ) -> dict[str, Any] | None:
+        db.execute(
+            """
+            UPDATE access_codes
+            SET activation_count = COALESCE(activation_count, 0) + 1
+            WHERE code = ? AND slug = ?
+            """,
+            (digits, slug),
+        )
+        return self._lookup_code_row(db, digits, slug)
 
     def record_download(
         self,

@@ -21,13 +21,13 @@ class TrialAccessCard extends StatelessWidget {
     final Widget? status;
     if (access.isPaid && access.paidExpiresAt != null) {
       status = _StatusLine(
-        icon: Icons.verified_rounded,
+        icon: Icons.check_circle_rounded,
         prefix: 'Доступ активирован до ',
         date: formatRuAccessDate(access.paidExpiresAt!),
       );
     } else if (access.paidExpired && access.paidExpiresAt != null) {
       status = _StatusLine(
-        icon: Icons.verified_rounded,
+        icon: Icons.check_circle_rounded,
         prefix: 'Доступ действовал до ',
         date: formatRuAccessDate(access.paidExpiresAt!),
       );
@@ -47,13 +47,13 @@ class TrialAccessCard extends StatelessWidget {
 
     return SoftPanel(
       color: const Color(0xFFECF8F0),
-      padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (status != null) status,
           if (access.canActivateAccess) ...[
-            if (status != null) const SizedBox(height: 14),
+            if (status != null) const SizedBox(height: 10),
             OutlinedButton.icon(
               onPressed: () => showActivationSheet(context, access),
               icon: const Icon(Icons.key_rounded, size: 18),
@@ -80,23 +80,15 @@ class _StatusLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Icon(icon, color: AppColors.meadow, size: 22),
-        ),
-        const SizedBox(width: 12),
+        Icon(icon, color: AppColors.meadow, size: 18),
+        const SizedBox(width: 8),
         Expanded(
           child: Text.rich(
             TextSpan(
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    height: 1.35,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppColors.ink,
+                    height: 1.3,
                   ),
               children: [
                 TextSpan(text: prefix),
@@ -104,7 +96,7 @@ class _StatusLine extends StatelessWidget {
                   text: date,
                   style: const TextStyle(
                     color: AppColors.forest,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],

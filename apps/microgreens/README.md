@@ -34,6 +34,7 @@ cd c:\cursor\green
 # ярлыки:
 .\scripts\build_microgreens_web.ps1
 .\scripts\build_microgreens_apk.ps1
+.\scripts\build_microgreens_aab.ps1   # Google Play (.aab)
 ```
 
 Локально проверить портал + PWA + push:

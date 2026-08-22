@@ -21,7 +21,7 @@ class PlantingLogService {
   static final PlantingLogService instance = PlantingLogService._();
 
   static const fileName = 'лог_посадок.txt';
-  static const _channel = MethodChannel('com.greengrow.green_grow/device');
+  static const _channel = MethodChannel('com.agronizer.greengrow/device');
   static final _stamp = DateFormat('dd.MM.yyyy HH:mm');
 
   /// Optional override for tests.

@@ -84,6 +84,10 @@ class Store:
             self.subscriptions = {}
         if not isinstance(self.schedules, dict):
             self.schedules = {}
+        self.delivered_path = self.data_dir / "delivered.json"
+        self.delivered: dict[str, list[str]] = read_json(self.delivered_path, {})
+        if not isinstance(self.delivered, dict):
+            self.delivered = {}
 
     def _load_vapid(self) -> dict[str, str]:
         if not self.vapid_path.exists():
@@ -107,6 +111,13 @@ class Store:
 
     def save_schedules(self) -> None:
         write_json(self.schedule_path, self.schedules)
+
+    def save_delivered(self) -> None:
+        write_json(self.delivered_path, self.delivered)
+
+    @staticmethod
+    def _delivery_key(item: dict[str, Any]) -> str:
+        return f"{item.get('id')}|{item.get('at')}"
 
     def _send_sync(self, sub: dict[str, Any], title: str, body: str, data: dict[str, Any]) -> None:
         webpush(
@@ -149,20 +160,34 @@ class Store:
     async def tick(self) -> None:
         now = datetime.now(timezone.utc).timestamp() * 1000
         due: list[tuple[str, dict[str, Any]]] = []
+        delivered_changed = False
         async with self.lock:
             for device_id, items in list(self.schedules.items()):
                 if not isinstance(items, list):
                     continue
                 keep: list[dict[str, Any]] = []
+                sent = self.delivered.get(device_id)
+                if not isinstance(sent, list):
+                    sent = []
+                    self.delivered[device_id] = sent
                 for item in items:
                     at = parse_at_ms(str(item.get("at") or ""))
+                    key = self._delivery_key(item)
+                    if key in sent:
+                        continue
                     if at is None or at > now:
                         keep.append(item)
                     else:
                         due.append((device_id, item))
+                        sent.append(key)
+                        delivered_changed = True
+                        if len(sent) > 300:
+                            self.delivered[device_id] = sent[-200:]
                 self.schedules[device_id] = keep
             if due:
                 self.save_schedules()
+            if delivered_changed:
+                self.save_delivered()
 
         for device_id, item in due:
             title = item.get("title") or "Агронайзер"

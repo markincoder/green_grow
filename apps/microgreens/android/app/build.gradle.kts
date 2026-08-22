@@ -14,7 +14,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.greengrow.green_grow"
+    namespace = "com.agronizer.greengrow"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -25,7 +25,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.greengrow.green_grow"
+        applicationId = "com.agronizer.greengrow"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
@@ -50,6 +50,27 @@ android {
             } else {
                 // Local `flutter run --release` without a keystore.
                 signingConfigs.getByName("debug")
+            }
+            ndk {
+                // Play + Flutter 3.44 require stripped .so with symbols in BUNDLE-METADATA.
+                debugSymbolLevel = "SYMBOL_TABLE"
+                // AGP forbids ndk.abiFilters when ABI splits are enabled (`--split-per-abi`).
+                // build_app.ps1 passes -P disable-abi-filtering=true on that APK path.
+                if (project.findProperty("disable-abi-filtering") != "true") {
+                    // Flutter's plugin fills defaultConfig with all ABIs; += would keep them.
+                    abiFilters.clear()
+                    abiFilters.add("arm64-v8a")
+                }
+            }
+            packaging {
+                jniLibs {
+                    excludes += listOf(
+                        "**/armeabi-v7a/**",
+                        "**/armeabi/**",
+                        "**/x86/**",
+                        "**/x86_64/**",
+                    )
+                }
             }
             // R8 strips Gson generic signatures unless these rules are applied —
             // without them scheduled notifications crash with "Missing type parameter".

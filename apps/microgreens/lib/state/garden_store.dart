@@ -76,6 +76,7 @@ class GardenStore extends ChangeNotifier {
       lastWateredAt: now,
       stage: resolvedStage,
       stageChangedAt: start,
+      createdAt: now,
       customName: (name != null && name.isNotEmpty) ? name : null,
       seedGrams: seedGrams ?? plant?.seedGrams,
     );

@@ -703,11 +703,14 @@
   function openMicrogreensInBrowser() {
     var url = location.origin + APP_PATH;
     if (isAndroid()) {
+      var pkg = isYandex() ? 'com.yandex.browser' : 'com.android.chrome';
       var hostPath = location.host + APP_PATH;
       var intent =
         'intent://' +
         hostPath +
-        '#Intent;scheme=https;package=com.android.chrome;' +
+        '#Intent;scheme=https;package=' +
+        pkg +
+        ';' +
         'S.browser_fallback_url=' +
         encodeURIComponent(url) +
         ';end';
@@ -787,8 +790,29 @@
     return 'ещё не выбраны';
   }
 
-  /** Android: no address-bar lock — use browser menu → site settings → notifications. */
+  /** Short how-to for Android site notifications (status lines). */
+  function androidSiteNotifyShortHint() {
+    if (isYandex()) {
+      return 'Яндекс: на вкладке agronizer.ru меню ≡ / ⋮ → «О сайте» → «Уведомления от этого сайта»';
+    }
+    return '⋮ → Настройки / Сведения о сайте → Уведомления → Разрешить';
+  }
+
+  /**
+   * Android: Chrome has «Сведения о сайте»; Yandex has «О сайте» on the current tab.
+   * agronizer.ru appears in Allowed/Blocked only AFTER a prompt or that toggle.
+   */
   function androidSiteNotifyStepsHtml() {
+    if (isYandex()) {
+      return (
+        '<li>Пункта agronizer.ru в «Заблокированы» <b>не будет</b>, пока вы не включите тумблер на этой вкладке — так устроен Яндекс</li>' +
+        '<li>Нужна обычная <b>вкладка</b> с адресной строкой, не ярлык с экрана «Домой»</li>' +
+        '<li>Меню <b>≡</b> или <b>⋮</b> внизу справа → <b>О сайте</b></li>' +
+        '<li>Включите <b>Уведомления от этого сайта</b></li>' +
+        '<li>Если «О сайте» нет: замок / щит слева в адресной строке → Уведомления</li>' +
+        '<li>Вернитесь сюда и нажмите «Проверить снова»</li>'
+      );
+    }
     return (
       '<li>Меню браузера <b>⋮</b> / <b>≡</b> → <b>Настройки</b> или <b>Сведения о сайте</b> / <b>Настройки сайта</b></li>' +
       '<li><b>Уведомления</b> (или Разрешения → Уведомления) → <b>Разрешить</b> для <b>agronizer.ru</b></li>' +
@@ -811,6 +835,9 @@
     if (isIos()) {
       return 'Сайту запрещены уведомления. На iOS проверьте иконку на «Домой» и настройки уведомлений приложения.';
     }
+    if (isYandex()) {
+      return 'Яндекс ещё не добавил agronizer.ru в списки — это нормально. Включите тумблер на этой вкладке: ≡ → О сайте → Уведомления от этого сайта.';
+    }
     return 'Сайту agronizer.ru запрещены уведомления. Включите их в настройках сайта браузера (меню ⋮), не в настройках Android → Приложения.';
   }
 
@@ -818,7 +845,7 @@
     if (isIos()) {
       return 'iOS: иконка на «Домой» + уведомления для Микрозелень / Safari.';
     }
-    return 'Android: ⋮ → Настройки / Сведения о сайте → Уведомления → Разрешить. Замка в адресной строке нет.';
+    return androidSiteNotifyShortHint() + '. Замка в адресной строке нет.';
   }
 
   /** Chrome caches Notification.permission until a real navigation (reload is often not enough). */
@@ -1142,14 +1169,21 @@
       title.textContent = notifyBeforeIcon()
         ? '1. Уведомления сайта agronizer.ru'
         : '2. Уведомления сайта agronizer.ru';
-      lead.textContent = notifyBeforeIcon()
-        ? 'В Chrome сначала уведомления сайта, и только потом установка — иначе пункты уведомлений сайта пропадут.'
-        : 'Сначала разрешение именно сайту (не браузеру в целом). Сейчас для agronizer.ru: ' +
+      if (isYandex()) {
+        lead.textContent =
+          'Сначала разрешение сайту agronizer.ru. Сейчас: ' +
           sitePermLabel() +
-          '.';
-      if (notifyBeforeIcon()) {
-        lead.textContent +=
-          ' Сейчас для agronizer.ru: ' + sitePermLabel() + '.';
+          '. Списка «Заблокированы» может не быть. Включайте на вкладке: ≡ → О сайте → Уведомления от этого сайта.';
+      } else {
+        lead.textContent = notifyBeforeIcon()
+          ? 'В Chrome сначала уведомления сайта, и только потом установка — иначе пункты уведомлений сайта пропадут.'
+          : 'Сначала разрешение именно сайту (не браузеру в целом). Сейчас для agronizer.ru: ' +
+            sitePermLabel() +
+            '.';
+        if (notifyBeforeIcon()) {
+          lead.textContent +=
+            ' Сейчас для agronizer.ru: ' + sitePermLabel() + '.';
+        }
       }
 
       if (notifGranted()) {
@@ -1169,8 +1203,10 @@
         steps.innerHTML = isIos()
           ? iosSiteNotifyStepsHtml()
           : androidSiteNotifyStepsHtml();
-        btnPrimary.hidden = true;
-        btnSecondary.hidden = true;
+        btnPrimary.hidden = false;
+        btnPrimary.textContent = 'Проверить снова';
+        btnSecondary.hidden = false;
+        btnSecondary.textContent = 'Нет «О сайте» — открыть во вкладке';
         btnEnter.hidden = true;
         setStatus(siteNotifyDeniedStatus(), 'bad');
       } else {
@@ -1180,6 +1216,12 @@
             '<li>Нажмите «Разрешить уведомления сайту»</li>' +
             '<li>В окне выберите <b>Разрешить</b></li>' +
             '<li>Если окна нет или отказали: Настройки iPhone → Микрозелень → Уведомления</li>';
+        } else if (isYandex()) {
+          steps.innerHTML =
+            '<li>Нажмите «Разрешить уведомления сайту» — если окно есть, выберите <b>Разрешить</b></li>' +
+            '<li>Если окна нет и agronizer.ru нет в списках — это нормально</li>' +
+            '<li>≡ / ⋮ → <b>О сайте</b> → включите <b>Уведомления от этого сайта</b></li>' +
+            '<li>Нет «О сайте»: откройте agronizer.ru как вкладку (с адресной строкой), не с ярлыка</li>';
         } else {
           steps.innerHTML =
             '<li>Нажмите «Разрешить уведомления сайту»</li>' +
@@ -1189,12 +1231,17 @@
         }
         btnPrimary.hidden = false;
         btnPrimary.textContent = 'Разрешить уведомления сайту';
-        btnSecondary.hidden = true;
+        btnSecondary.hidden = !isYandex();
+        if (isYandex()) {
+          btnSecondary.textContent = 'Нет «О сайте» — открыть во вкладке';
+        }
         btnEnter.hidden = true;
         setStatus(
           isIos()
             ? 'Вы в приложении с иконки — нажмите «Разрешить уведомления сайту».'
-            : 'Android: ⋮ → настройки сайта → Уведомления (замка нет).',
+            : isYandex()
+              ? 'Яндекс: ≡ / ⋮ → О сайте → Уведомления от этого сайта. Списка Заблокированы может не быть.'
+              : 'Android: ⋮ → настройки сайта → Уведомления (замка нет).',
         );
       }
 
@@ -1214,7 +1261,9 @@
           'Сайт ещё не разрешён. На iOS: иконка на «Домой» и Настройки → Микрозелень → Уведомления.';
       } else {
         lead.textContent =
-          'Сайт ещё не разрешён. Меню ⋮ → Настройки / Сведения о сайте → Уведомления → Разрешить, затем «Повторить тест сайта» здесь же.';
+          'Сайт ещё не разрешён. ' +
+          androidSiteNotifyShortHint() +
+          ', затем «Повторить тест сайта» здесь же.';
       }
       var stepsHtml =
         '<li>Статус сайта: <b>' +
@@ -1225,7 +1274,9 @@
       if (!siteOk) {
         stepsHtml += isIos()
           ? '<li><b>Сайт не разрешён</b> — иконка на «Домой» + Настройки iPhone → Микрозелень → Уведомления</li>'
-          : '<li><b>Сайт не разрешён</b> — ⋮ → Настройки / Сведения о сайте → Уведомления → Разрешить, затем снова тест на этой странице</li>';
+          : '<li><b>Сайт не разрешён</b> — ' +
+            androidSiteNotifyShortHint() +
+            ', затем снова тест на этой странице</li>';
       } else if (confirmTestAttempts >= 2) {
         stepsHtml +=
           '<li>Сайт разрешён, тест 2+ раза пустой → тогда: Настройки Android → Приложения → «' +
@@ -1249,7 +1300,7 @@
         setStatus(
           isIos()
             ? 'iOS: сначала разрешение с иконки / в Настройках.'
-            : 'Android: ⋮ → настройки сайта → Уведомления → Разрешить.',
+            : androidSiteNotifyShortHint() + '.',
           'bad',
         );
       } else if (confirmTestAttempts >= 2) {
@@ -1419,7 +1470,9 @@
         setStatus(
           'Тест сайта не отправился: ' +
             ((err && err.message) || 'неизвестно') +
-            '. Проверьте: меню ⋮ → настройки сайта → Уведомления = Разрешить, затем «Повторить тест сайта».',
+            '. Проверьте: ' +
+            androidSiteNotifyShortHint() +
+            ', затем «Повторить тест сайта».',
           'bad',
         );
         return false;
@@ -1533,7 +1586,9 @@
           setStatus(
             'Тест сайта не отправился: ' +
               ((err && err.message) || 'неизвестно') +
-              '. Сначала ⋮ → настройки сайта → Уведомления → Разрешить.',
+              '. Сначала ' +
+              androidSiteNotifyShortHint() +
+              '.',
             'bad',
           );
           render();
@@ -1557,12 +1612,7 @@
       return;
     }
     if (notifDenied()) {
-      renderWithStatus(
-        isIos()
-          ? 'Сайт запрещён. На iOS: иконка на «Домой» и Настройки → Микрозелень → Уведомления.'
-          : 'Сайт запрещён. ⋮ → Настройки / Сведения о сайте → Уведомления → Разрешить, затем снова кнопка на этой странице.',
-        'bad',
-      );
+      reloadToRefreshPermission();
       return;
     }
     if (notifGranted()) {
@@ -1591,18 +1641,22 @@
           renderWithStatus(
             isIos()
               ? 'Сайт запретил уведомления. iOS: Настройки → Микрозелень → Уведомления.'
-              : 'Сайт запретил уведомления. ⋮ → Настройки / Сведения о сайте → Уведомления → Разрешить. Настройки браузера в Android пока не трогайте.',
+              : 'Сайт запретил уведомления. ' +
+                androidSiteNotifyShortHint() +
+                '. Настройки приложения браузера в Android пока не трогайте.',
             'bad',
           );
           return;
         }
         // default / dismissed / quiet UI — Chrome may show nothing
-        renderWithStatus(
-          isIos()
-            ? 'Окно не появилось. Откройте с иконки на «Домой» и нажмите кнопку ещё раз.'
-            : 'Окно не появилось. Нажмите кнопку ещё раз. Если тихо: ⋮ → настройки сайта → Уведомления → Разрешить.',
-          'bad',
-        );
+          renderWithStatus(
+            isIos()
+              ? 'Окно не появилось. Откройте с иконки на «Домой» и нажмите кнопку ещё раз.'
+              : isYandex()
+                ? 'Окно не появилось. agronizer.ru не будет в списках, пока не включите: ≡ / ⋮ → О сайте → Уведомления от этого сайта.'
+                : 'Окно не появилось. Нажмите кнопку ещё раз. Если тихо: ⋮ → настройки сайта → Уведомления → Разрешить.',
+            'bad',
+          );
       })
       .catch(function (err) {
         renderWithStatus(
@@ -1643,7 +1697,9 @@
         setStatus(
           isIos()
             ? 'Сначала разрешите уведомления сайту (иконка / Настройки iPhone), потом тест.'
-            : 'Сначала ⋮ → настройки сайта → Уведомления → Разрешить, потом тест. Настройки браузера пока не нужны.',
+            : 'Сначала ' +
+              androidSiteNotifyShortHint() +
+              ', потом тест. Настройки браузера пока не нужны.',
           'bad',
         );
         return;
@@ -1703,10 +1759,20 @@
           });
         return;
       }
+      if (isYandex()) {
+        openMicrogreensInBrowser();
+        setStatus(
+          'Откройте agronizer.ru во вкладке с адресной строкой. Затем ≡ / ⋮ → О сайте → Уведомления от этого сайта. Потом «Проверить снова».',
+          'ok',
+        );
+        return;
+      }
       renderWithStatus(
         isIos()
           ? 'Статус сайта ещё не обновился. Настройки iPhone → Микрозелень → Уведомления, затем снова «Проверить» здесь.'
-          : 'Статус сайта ещё не обновился. ⋮ → Настройки / Сведения о сайте → Уведомления → Разрешить, затем снова «Проверить» на этой странице.',
+          : 'Статус сайта ещё не обновился. ' +
+            androidSiteNotifyShortHint() +
+            ', затем снова «Проверить» на этой странице.',
         'bad',
       );
     }

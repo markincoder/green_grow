@@ -67,59 +67,9 @@ class PlantDetailScreen extends StatelessWidget {
           body: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
-              SoftPanel(
-                color: AppColors.mist.withValues(alpha: 0.65),
-                child: Row(
-                  children: [
-                    PlantAvatar(
-                      icon: plant.icon,
-                      size: 72,
-                      background: Colors.white,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            plant.name,
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          ),
-                          const SizedBox(height: 8),
-                          DifficultyBadge(difficulty: plant.difficulty),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (gp == null) ...[
-                const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: FilledButton.icon(
-                    onPressed: () => _start(context),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.leaf,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
-                      ),
-                    ),
-                    icon: const Icon(Icons.add_rounded),
-                    label: const Text('Добавить на грядку'),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 16),
-              Text(
-                plant.description,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              if (gp != null) ...[
-                const SizedBox(height: 20),
+              if (gp != null)
                 SoftPanel(
+                  color: AppColors.mist.withValues(alpha: 0.65),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -161,6 +111,55 @@ class PlantDetailScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                )
+              else ...[
+                SoftPanel(
+                  color: AppColors.mist.withValues(alpha: 0.65),
+                  child: Row(
+                    children: [
+                      PlantAvatar(
+                        icon: plant.icon,
+                        size: 72,
+                        background: Colors.white,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              plant.name,
+                              style: Theme.of(context).textTheme.headlineSmall,
+                            ),
+                            const SizedBox(height: 8),
+                            DifficultyBadge(difficulty: plant.difficulty),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: FilledButton.icon(
+                    onPressed: () => _start(context),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.leaf,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                    ),
+                    icon: const Icon(Icons.add_rounded),
+                    label: const Text('Добавить на грядку'),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  plant.description,
+                  style: Theme.of(context).textTheme.bodyLarge,
                 ),
               ],
               const SizedBox(height: 24),

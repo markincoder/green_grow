@@ -8,6 +8,7 @@ import 'screens/catalog_screen.dart';
 import 'screens/contacts_screen.dart';
 import 'screens/garden_screen.dart';
 import 'screens/home_screen.dart';
+import 'services/app_update.dart';
 import 'services/foreground.dart';
 import 'services/reminder_service.dart';
 import 'services/web_push_service.dart';
@@ -45,7 +46,7 @@ class _GreenGrowAppState extends State<GreenGrowApp>
   final SettingsStore _settings = SettingsStore();
   final AccessStore _access = AccessStore();
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-  static const _deviceChannel = MethodChannel('com.greengrow.green_grow/device');
+  static const _deviceChannel = MethodChannel('com.agronizer.greengrow/device');
 
   @override
   void initState() {
@@ -54,7 +55,10 @@ class _GreenGrowAppState extends State<GreenGrowApp>
     listenPageForeground(_access.recheck);
     if (!kIsWeb) {
       _deviceChannel.setMethodCallHandler((call) async {
-        if (call.method == 'timeChanged') _access.recheck();
+        if (call.method == 'timeChanged') {
+          _access.recheck();
+          _syncReminders();
+        }
       });
     }
     _store.addListener(_syncReminders);
@@ -85,6 +89,10 @@ class _GreenGrowAppState extends State<GreenGrowApp>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
       if (_access.consumeUpdateOffer()) {
+        if (kIsWeb) {
+          final reloading = await applyWebAppUpdate();
+          if (reloading) return;
+        }
         final updateContext = _navigatorKey.currentContext;
         if (updateContext == null || !updateContext.mounted) return;
         await showAppUpdateDialog(updateContext, _access);
@@ -126,8 +134,7 @@ class _GreenGrowAppState extends State<GreenGrowApp>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed ||
-        state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.resumed) {
       _access.recheck();
       if (kIsWeb && WebPushService.permissionGranted) {
         _onWebNotifyGranted();

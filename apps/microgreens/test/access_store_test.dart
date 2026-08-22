@@ -204,7 +204,7 @@ void main() {
         siteUrl: 'https://agronizer.ru',
         appVersion: '1.0.5',
         appBuild: 6,
-        apkUrl: 'https://agronizer.ru/apps/microgreens/microgreens.apk',
+        apkUrl: 'https://agronizer.ru/apps/microgreens/microgreens.apk?v=6',
       );
     final access = AccessStore(
       api: api,

@@ -74,6 +74,7 @@ scripts/
   build_app.ps1                  # сборка одного приложения (APK и/или PWA)
   build_all.ps1                  # все приложения из apps.json
   build_microgreens_apk.ps1      # ярлык: только APK микрозелени
+  build_microgreens_aab.ps1      # ярлык: App Bundle для Google Play
   build_microgreens_web.ps1      # ярлык: только PWA микрозелени
   create_android_keystore.ps1    # один раз: подпись release APK
   patch_pwa_sw.ps1               # внутренняя: SW после flutter build web
@@ -183,16 +184,18 @@ cd c:\cursor\green
 # ярлыки для микрозелени:
 .\scripts\build_microgreens_web.ps1
 .\scripts\build_microgreens_apk.ps1
+.\scripts\build_microgreens_aab.ps1   # App Bundle для Google Play
 ```
 
-Release APK нужно подписывать своим keystore, не debug-ключом (иначе Play Protect пишет, что разработчик не подтверждён):
+Release APK / AAB нужно подписывать своим keystore, не debug-ключом (иначе Play Protect пишет, что разработчик не подтверждён):
 
 ```powershell
 .\scripts\create_android_keystore.ps1   # один раз; сохраните android/upload-keystore.jks и android/key.properties
 .\scripts\build_microgreens_apk.ps1
+.\scripts\build_microgreens_aab.ps1
 ```
 
-Затем зарегистрируйте пакет `com.greengrow.green_grow` и SHA-256 сертификата в
+Затем зарегистрируйте пакет `com.agronizer.greengrow` и SHA-256 сертификата в
 [Android Developer Console](https://developer.android.com/developer-verification) или Google Play Console.
 
 `build_all.ps1` собирает каждое приложение через `build_app.ps1`.
@@ -461,7 +464,7 @@ SMTP_TLS=1
 | Прод, в контейнере | `/data/access.sqlite` |
 | Прод, на диске | named volume `agronizer_data` |
 
-Таблицы: `access_codes` (`email`, `code`, `purchased_at`, `expires_at`, `slug`, `user_id`, `payment_id`)
+Таблицы: `access_codes` (`code`, `purchased_at`, `expires_at`, `activated_at`, `activation_count`, `slug`, `user_id`, `payment_id`)
 и `payments`. Даты — ISO UTC, например `2026-08-14T12:00:00+00:00`.
 
 В образе **нет** утилиты `sqlite3`. Смотреть и чистить — через Python в контейнере.

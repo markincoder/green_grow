@@ -116,123 +116,141 @@ class _HomeScreenState extends State<HomeScreen> {
         ]),
         builder: (context, _) {
           final reminders = _reminders;
-          return Stack(
+          final showAccess = widget.access.trialEndsAt != null ||
+              widget.access.paidExpiresAt != null;
+          return Column(
             children: [
-              ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            children: [
-              const BrandLogo(),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                height: 58,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.leaf,
-                    foregroundColor: Colors.white,
-                    textStyle: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w700,
-                        ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                  ),
-                  onPressed: widget.onAddPlant,
-                  icon: const Icon(Icons.add_rounded, size: 26),
-                  label: const Text('Выращивать'),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Text(
-                'Выберите вид микрозелени и дату старта',
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              const SizedBox(height: 18),
-              SoftPanel(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          SettingsScreen(settings: widget.settings),
-                    ),
-                  );
-                },
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                child: Row(
+              Expanded(
+                child: Stack(
                   children: [
-                    Icon(
-                      widget.settings.enabled
-                          ? Icons.notifications_active_rounded
-                          : Icons.notifications_off_outlined,
-                      color: widget.settings.enabled
-                          ? AppColors.meadow
-                          : AppColors.muted,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                    ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                      children: [
+                        const BrandLogo(),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          height: 58,
+                          child: FilledButton.icon(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppColors.leaf,
+                              foregroundColor: Colors.white,
+                              textStyle: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(22),
+                              ),
+                            ),
+                            onPressed: widget.onAddPlant,
+                            icon: const Icon(Icons.add_rounded, size: 26),
+                            label: const Text('Выращивать'),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Выберите вид микрозелени и дату старта',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        const SizedBox(height: 18),
+                        SoftPanel(
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) => SettingsScreen(
+                                  settings: widget.settings,
+                                ),
+                              ),
+                            );
+                          },
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                widget.settings.enabled
+                                    ? Icons.notifications_active_rounded
+                                    : Icons.notifications_off_outlined,
+                                color: widget.settings.enabled
+                                    ? AppColors.meadow
+                                    : AppColors.muted,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Настройки уведомлений',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
+                                    ),
+                                    Text(
+                                      widget.settings.enabled
+                                          ? 'Ежедневно в ${widget.settings.reminderTimeLabel}'
+                                          : 'Выключены · нажмите, чтобы настроить',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: AppColors.forest,
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (reminders.isNotEmpty) ...[
+                          const SizedBox(height: 18),
                           Text(
-                            'Настройки уведомлений',
+                            'Напоминания на сегодня',
                             style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          Text(
-                            widget.settings.enabled
-                                ? 'Ежедневно в ${widget.settings.reminderTimeLabel}'
-                                : 'Выключены · нажмите, чтобы настроить',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
+                          const SizedBox(height: 4),
+                          for (final item in reminders)
+                            _ReminderTile(
+                              item: item,
+                              onMarkDone: item.done
+                                  ? null
+                                  : () => async.unawaited(_markDone(item)),
+                            ),
                         ],
+                      ],
+                    ),
+                    if (_celebrating && _celebrateEntry == null)
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: _CelebrateBurst(
+                            onFinished: () {
+                              if (mounted) {
+                                setState(() => _celebrating = false);
+                              }
+                            },
+                          ),
+                        ),
                       ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: AppColors.forest,
-                    ),
                   ],
                 ),
               ),
-              if (reminders.isNotEmpty) ...[
-                const SizedBox(height: 18),
-                Text(
-                  'Напоминания на сегодня',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 4),
-                for (final item in reminders)
-                  _ReminderTile(
-                    item: item,
-                    onMarkDone: item.done
-                        ? null
-                        : () => async.unawaited(_markDone(item)),
-                  ),
-              ],
-              if (widget.access.trialEndsAt != null ||
-                  widget.access.paidExpiresAt != null) ...[
-                const SizedBox(height: 22),
-                TrialAccessCard(
-                  key: const ValueKey('trial-access'),
-                  access: widget.access,
-                ),
-              ],
-            ],
-          ),
-              if (_celebrating && _celebrateEntry == null)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: _CelebrateBurst(
-                      onFinished: () {
-                        if (mounted) setState(() => _celebrating = false);
-                      },
-                    ),
+              if (showAccess)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                  child: TrialAccessCard(
+                    key: const ValueKey('trial-access'),
+                    access: widget.access,
                   ),
                 ),
             ],
