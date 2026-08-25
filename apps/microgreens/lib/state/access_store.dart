@@ -61,6 +61,14 @@ class AccessStore extends ChangeNotifier {
     return value;
   }
 
+  /// Offer the update dialog again (e.g. waiting service worker on web).
+  void offerUpdate({AppVersion? remote}) {
+    if (remote != null) remoteVersion = remote;
+    updateAvailable = true;
+    _offerUpdate = true;
+    notifyListeners();
+  }
+
   Uri get buyUri {
     final base = siteUrl.replaceAll(RegExp(r'/+$'), '');
     return Uri.parse('$base/pay/microgreens/');

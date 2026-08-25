@@ -401,7 +401,8 @@ class ReminderService {
       if (garden.isInGerminateStage) {
         if (!plant.hasGerminateStage) continue;
         final when = garden.germinateReminderAt(plant);
-        if (when.isAfter(at)) continue;
+        // Calendar day (same as status / harvest), not wall-clock hour.
+        if (!_onOrBeforeDay(when, day)) continue;
         final key = SettingsStore.gardenActionKey(
           garden.id,
           DueActionKind.toLight,
@@ -506,7 +507,9 @@ class ReminderService {
       };
 
   /// Daily digest lines, sorted: soak → germinate → grow → water.
-  /// Completed (dismissed) items are omitted from push text.
+  /// Matches undismissed home reminders for [day] (one combined push).
+  /// Backdated soak/to-light still appear here; exact-hour tray pushes keep
+  /// [skipMissedPhasePush] separately so adding an old tray does not spam.
   @visibleForTesting
   static String? buildDailyDigestBody({
     required List<GardenPlant> plants,
@@ -519,12 +522,7 @@ class ReminderService {
       day: day,
       dismissedKeys: dismissedKeys,
       now: digestAt,
-    ).where((e) {
-      if (e.done) return false;
-      if (e.dueAt != null && e.dueAt!.isAfter(digestAt)) return false;
-      if (skipMissedPhasePush(e)) return false;
-      return true;
-    });
+    ).where((e) => !e.done);
     if (items.isEmpty) return null;
     return items.map((e) => e.pushText).join('\n');
   }

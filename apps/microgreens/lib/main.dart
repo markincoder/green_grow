@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -13,6 +15,7 @@ import 'services/foreground.dart';
 import 'services/reminder_service.dart';
 import 'services/web_push_service.dart';
 import 'state/access_store.dart';
+import 'state/favorites_store.dart';
 import 'state/garden_store.dart';
 import 'state/settings_store.dart';
 import 'theme/app_theme.dart';
@@ -44,9 +47,13 @@ class _GreenGrowAppState extends State<GreenGrowApp>
     with WidgetsBindingObserver {
   final GardenStore _store = GardenStore();
   final SettingsStore _settings = SettingsStore();
+  final FavoritesStore _favorites = FavoritesStore();
   final AccessStore _access = AccessStore();
   final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
   static const _deviceChannel = MethodChannel('com.agronizer.greengrow/device');
+  var _startupDialogsScheduled = false;
+  var _updateDialogVisible = false;
+  var _startupDialogRetries = 0;
 
   @override
   void initState() {
@@ -68,7 +75,12 @@ class _GreenGrowAppState extends State<GreenGrowApp>
   }
 
   Future<void> _bootstrap() async {
-    await Future.wait([_store.load(), _settings.load(), _access.load()]);
+    await Future.wait([
+      _store.load(),
+      _settings.load(),
+      _favorites.load(),
+      _access.load(),
+    ]);
     _showStartupDialogs();
     if (kIsWeb) {
       WebPushService.onNotifyGranted(_onWebNotifyGranted);
@@ -85,25 +97,61 @@ class _GreenGrowAppState extends State<GreenGrowApp>
   }
 
   void _showStartupDialogs() {
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted) return;
-      if (_access.consumeUpdateOffer()) {
-        if (kIsWeb) {
-          final reloading = await applyWebAppUpdate();
-          if (reloading) return;
-        }
-        final updateContext = _navigatorKey.currentContext;
-        if (updateContext == null || !updateContext.mounted) return;
-        await showAppUpdateDialog(updateContext, _access);
-      }
-      if (!mounted) return;
-      if (_access.consumeStartupActivationOffer()) {
-        final activationContext = _navigatorKey.currentContext;
-        if (activationContext == null || !activationContext.mounted) return;
-        await showActivationSheet(activationContext, _access);
-      }
+    if (_startupDialogsScheduled) return;
+    _startupDialogsScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runStartupDialogs();
     });
+  }
+
+  Future<void> _runStartupDialogs() async {
+    if (!mounted) return;
+
+    if (kIsWeb) {
+      await _offerWaitingPwaUpdate();
+    }
+
+    final ctx = _navigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) {
+      if (_startupDialogRetries >= 20) return;
+      _startupDialogRetries++;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _runStartupDialogs();
+      });
+      return;
+    }
+
+    if (!_updateDialogVisible &&
+        !htmlPwaUpdatePromptShown() &&
+        _access.consumeUpdateOffer()) {
+      _updateDialogVisible = true;
+      try {
+        await showAppUpdateDialog(ctx, _access);
+      } finally {
+        _updateDialogVisible = false;
+      }
+    }
+
+    if (!mounted) return;
+    if (_access.consumeStartupActivationOffer()) {
+      final activationContext = _navigatorKey.currentContext;
+      if (activationContext == null || !activationContext.mounted) return;
+      await showActivationSheet(activationContext, _access);
+    }
+  }
+
+  Future<void> _offerWaitingPwaUpdate() async {
+    if (htmlPwaUpdatePromptShown()) return;
+    if (_access.updateAvailable) return;
+    // Let the HTML overlay claim a waiting worker first.
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    if (!mounted || htmlPwaUpdatePromptShown()) return;
+    if (_access.updateAvailable) return;
+    try {
+      if (await hasWaitingWebAppUpdate()) {
+        _access.offerUpdate();
+      }
+    } catch (_) {}
   }
 
   Future<void> _onWebNotifyGranted() async {
@@ -136,12 +184,32 @@ class _GreenGrowAppState extends State<GreenGrowApp>
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _access.recheck();
-      if (kIsWeb && WebPushService.permissionGranted) {
-        _onWebNotifyGranted();
+      if (kIsWeb) {
+        unawaited(_onWebResume());
       } else {
         // User may have granted exact-alarm / notification permission in Settings.
         _syncReminders();
       }
+    }
+  }
+
+  Future<void> _onWebResume() async {
+    if (WebPushService.permissionGranted) {
+      await _onWebNotifyGranted();
+    } else {
+      await _syncReminders();
+    }
+    if (!mounted || !_access.loaded) return;
+    if (htmlPwaUpdatePromptShown() || _updateDialogVisible) return;
+    await _offerWaitingPwaUpdate();
+    if (!_access.consumeUpdateOffer()) return;
+    final ctx = _navigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return;
+    _updateDialogVisible = true;
+    try {
+      await showAppUpdateDialog(ctx, _access);
+    } finally {
+      _updateDialogVisible = false;
     }
   }
 
@@ -153,6 +221,7 @@ class _GreenGrowAppState extends State<GreenGrowApp>
     _access.removeListener(_syncReminders);
     _store.dispose();
     _settings.dispose();
+    _favorites.dispose();
     _access.dispose();
     if (!kIsWeb) {
       _deviceChannel.setMethodCallHandler(null);
@@ -163,9 +232,12 @@ class _GreenGrowAppState extends State<GreenGrowApp>
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_store, _settings, _access]),
+      animation: Listenable.merge([_store, _settings, _favorites, _access]),
       builder: (context, _) {
-        final ready = _store.loaded && _settings.loaded && _access.loaded;
+        final ready = _store.loaded &&
+            _settings.loaded &&
+            _favorites.loaded &&
+            _access.loaded;
         Widget home;
         if (!ready) {
           home = const Scaffold(
@@ -180,6 +252,7 @@ class _GreenGrowAppState extends State<GreenGrowApp>
           home = MainShell(
             store: _store,
             settings: _settings,
+            favorites: _favorites,
             access: _access,
           );
         }
@@ -207,11 +280,13 @@ class MainShell extends StatefulWidget {
     super.key,
     required this.store,
     required this.settings,
+    required this.favorites,
     required this.access,
   });
 
   final GardenStore store;
   final SettingsStore settings;
+  final FavoritesStore favorites;
   final AccessStore access;
 
   @override
@@ -263,10 +338,12 @@ class _MainShellState extends State<MainShell> {
       ),
       GardenScreen(
         store: widget.store,
+        favorites: widget.favorites,
         onAddPlant: _openCatalogRememberReturn,
       ),
       CatalogScreen(
         store: widget.store,
+        favorites: widget.favorites,
         onListPlantAdded: () {
           // «Выращивать» с Главной / Моей грядки — после Начать в Моя грядка.
           // Добавление из списка Базы знаний — остаёмся здесь.
@@ -305,13 +382,13 @@ class _MainShellState extends State<MainShell> {
             label: 'Главная',
           ),
           NavigationDestination(
-            icon: Icon(Icons.yard_outlined),
-            selectedIcon: Icon(Icons.yard_rounded),
+            icon: Icon(Icons.eco_outlined),
+            selectedIcon: Icon(Icons.eco_rounded),
             label: 'Моя грядка',
           ),
           NavigationDestination(
-            icon: Icon(Icons.eco_outlined),
-            selectedIcon: Icon(Icons.eco_rounded),
+            icon: Icon(Icons.yard_outlined),
+            selectedIcon: Icon(Icons.yard_rounded),
             label: 'База знаний',
           ),
           NavigationDestination(

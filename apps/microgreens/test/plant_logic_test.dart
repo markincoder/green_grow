@@ -5,32 +5,59 @@ import 'package:green_grow/widgets/common_widgets.dart';
 
 void main() {
   test('catalog has microgreens from cultivation table', () {
-    expect(plantsCatalog.length, greaterThanOrEqualTo(20));
+    expect(plantsCatalog.length, greaterThanOrEqualTo(30));
     final radish = plantById('radish')!;
     expect(radish.needsSoak, isFalse);
-    expect(radish.seedGrams, 6);
+    expect(radish.seedGramsMin, 6);
+    expect(radish.seedGramsMax, 8);
+    expect(radish.seedGramsLabel, '6–8 г');
     expect(radish.germinateHoursMax, 72);
-    expect(radish.growDays, 5);
-    expect(radish.cycleDaysLabel, '5–8 дн.');
+    expect(radish.growDays, 6);
+    expect(radish.listImage, 'assets/plants/redis1.jpg');
+    expect(radish.cardImage, 'assets/plants/redis2.jpg');
+    expect(
+      radish.cardPhotos,
+      ['assets/plants/redis1.jpg', 'assets/plants/redis2.jpg'],
+    );
+
+    final basil = plantById('basil_mg')!;
+    expect(basil.listImage, isNull);
+    expect(basil.listAvatar, Plant.defaultPhoto);
+    expect(basil.cardPhotos, [Plant.defaultPhoto]);
+
+    final broccoli = plantById('broccoli')!;
+    expect(broccoli.listImage, 'assets/plants/brokkoli1.jpg');
+    expect(
+      broccoli.cardPhotos,
+      ['assets/plants/brokkoli1.jpg'],
+    );
 
     final pea = plantById('pea')!;
     expect(pea.needsSoak, isTrue);
     expect(pea.soakHoursMin, 8);
-    expect(pea.pressKgMin, 1.5);
+    expect(pea.pressKind, PressKind.weight);
+    expect(pea.pressKgMin, 2);
     expect(pea.seedGrams, 35);
 
     final sunflower = plantById('sunflower')!;
     expect(sunflower.needsPress, isTrue);
-    expect(sunflower.pressKgMin, 1.5);
+    expect(sunflower.pressKgMin, 2);
+    expect(sunflower.pressLabel, '2 кг');
 
     final amaranth = plantById('amaranth')!;
-    expect(amaranth.hasGerminateStage, isFalse);
+    expect(amaranth.hasGerminateStage, isTrue);
+    expect(amaranth.pressKind, PressKind.upperTray);
+    expect(amaranth.pressLabel, 'Верхним лотком');
     expect(amaranth.hasGrowStage, isTrue);
-    expect(GardenPlant.initialStageFor(amaranth), GrowthStage.grow);
+    expect(GardenPlant.initialStageFor(amaranth), GrowthStage.germinate);
 
     final corn = plantById('corn')!;
-    expect(corn.hasGrowStage, isFalse);
+    expect(corn.needsSoak, isTrue);
+    expect(corn.hasGrowStage, isTrue);
     expect(corn.feature, contains('темноте'));
+
+    expect(plantById('10007')!.name, 'Дайкон');
+    expect(plantById('10028')!.name, 'Свекла');
   });
 
   test('status line follows manual stage, not elapsed time', () {
@@ -97,7 +124,7 @@ void main() {
     expect(growing.stageVerb(arugula, now), 'Растет');
     expect(
       growing.statusLine(arugula, now),
-      'Растет. Собрать 11 авг. Проверить воду',
+      'Растет. Собрать 12 авг. Проверить воду',
     );
     expect(growing.nextActionLabel(arugula), 'Собрать');
 
@@ -109,7 +136,7 @@ void main() {
       stage: GrowthStage.grow,
       stageChangedAt: now,
     );
-    expect(growingWatered.statusLine(arugula, now), 'Растет. Собрать 11 авг');
+    expect(growingWatered.statusLine(arugula, now), 'Растет. Собрать 12 авг');
   });
 
   test('whenPhrase uses lowercase сегодня/завтра and later dates', () {
@@ -293,8 +320,11 @@ void main() {
     final radish = plantById('radish')!;
     expect(GardenPlant.initialStageFor(radish), GrowthStage.germinate);
 
-    final celery = plantById('celery')!;
-    expect(GardenPlant.initialStageFor(celery), GrowthStage.grow);
+    // New catalog: every culture has a dark germinate stage.
+    expect(
+      plantsCatalog.every((p) => p.hasGerminateStage),
+      isTrue,
+    );
   });
 
   test('startable stages depend on soak and dark need', () {
@@ -311,13 +341,16 @@ void main() {
     );
 
     final corn = plantById('corn')!;
-    expect(corn.startableStages, [GrowthStage.germinate]);
+    expect(
+      corn.startableStages,
+      [GrowthStage.soak, GrowthStage.germinate, GrowthStage.grow],
+    );
   });
 
   test('progress weights stages by real duration', () {
     final radish = plantById('radish')!;
-    // germinate 72h + grow 5d = 192h total
-    expect(radish.cycleDuration.inHours, 192);
+    // germinate 72h + grow 6d = 216h total
+    expect(radish.cycleDuration.inHours, 216);
 
     final now = DateTime(2026, 8, 11, 12);
     final justPlanted = GardenPlant(
@@ -338,8 +371,7 @@ void main() {
       stage: GrowthStage.germinate,
       stageChangedAt: now.subtract(const Duration(hours: 36)),
     );
-    // 36 / 192 ≈ 18.75%
-    expect(midGerminate.progressFor(radish, now), closeTo(36 / 192, 0.01));
+    expect(midGerminate.progressFor(radish, now), closeTo(36 / 216, 0.01));
 
     final justOnLight = GardenPlant(
       id: 'r3',
@@ -349,8 +381,7 @@ void main() {
       stage: GrowthStage.grow,
       stageChangedAt: now,
     );
-    // full germinate credited: 72 / 192 = 37.5%
-    expect(justOnLight.progressFor(radish, now), closeTo(72 / 192, 0.01));
+    expect(justOnLight.progressFor(radish, now), closeTo(72 / 216, 0.01));
 
     final midGrow = GardenPlant(
       id: 'r4',
@@ -360,13 +391,12 @@ void main() {
       stage: GrowthStage.grow,
       stageChangedAt: now.subtract(const Duration(days: 2, hours: 12)),
     );
-    // 5d elapsed / 8d cycle
-    expect(midGrow.progressFor(radish, now), closeTo(120 / 192, 0.01));
+    expect(midGrow.progressFor(radish, now), closeTo(120 / 216, 0.01));
 
     final ready = GardenPlant(
       id: 'r5',
       plantId: radish.id,
-      startedAt: now.subtract(const Duration(days: 8)),
+      startedAt: now.subtract(const Duration(days: 9)),
       lastWateredAt: now,
       stage: GrowthStage.harvest,
       stageChangedAt: now,
@@ -390,7 +420,7 @@ void main() {
       germinating.nextPhaseLine(radish, now),
       'Рост 13 авг',
     );
-    expect(germinating.harvestLine(radish, now), 'Урожай 16 авг–19 авг');
+    expect(germinating.harvestLine(radish, now), 'Урожай 18 авг–20 авг');
 
     final growing = GardenPlant(
       id: 'g',
@@ -402,12 +432,12 @@ void main() {
     );
     expect(
       growing.nextPhaseLine(radish, now),
-      'Собрать 14 авг',
+      'Собрать 16 авг',
     );
-    expect(growing.harvestLine(radish, now), 'Урожай 14 авг–16 авг');
+    expect(growing.harvestLine(radish, now), 'Урожай 16 авг–17 авг');
 
     // Progress follows startedAt / full cycle, not the selected stage clock.
-    expect(growing.progressFor(radish, now), closeTo(72 / 192, 0.01));
+    expect(growing.progressFor(radish, now), closeTo(72 / 216, 0.01));
     final midGrow = GardenPlant(
       id: 'g2',
       plantId: radish.id,
@@ -433,9 +463,8 @@ void main() {
     );
 
     expect(overdue.statusLine(radish, now), 'Прорастает. Раскрыть сегодня');
-    // Still on germinate: harvest stays stageChangedAt + remaining catalog mins/maxes.
-    expect(overdue.harvestLine(radish, now), 'Урожай сегодня–15 авг');
-    expect(overdue.progressFor(radish, now), closeTo(146 / 192, 0.01));
+    expect(overdue.harvestLine(radish, now), 'Урожай завтра–16 авг');
+    expect(overdue.progressFor(radish, now), closeTo(146 / 216, 0.01));
   });
 
   test('harvest dates use remaining stage mins after each advance', () {
@@ -486,9 +515,9 @@ void main() {
 
   test('due actions use catalog minimum duration', () {
     final arugula = plantById('arugula_mg')!;
-    expect(arugula.cycleDaysLabel, '6–9 дн.');
+    expect(arugula.cycleDaysLabel, '7–9 дн.');
     expect(arugula.germinateHoursForTiming, 48); // min 2d
-    expect(arugula.growDaysLow, 4);
+    expect(arugula.growDaysLow, 5);
 
     final started = DateTime(2026, 8, 1, 10);
     final garden = GardenPlant(

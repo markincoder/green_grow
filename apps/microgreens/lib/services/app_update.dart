@@ -4,3 +4,9 @@ import 'app_update_stub.dart'
 /// Reload the PWA so the service worker can pick up the published build.
 /// Returns true if a reload was started.
 Future<bool> applyWebAppUpdate() => applyWebAppUpdateImpl();
+
+/// Whether a newer service worker is installed and waiting.
+Future<bool> hasWaitingWebAppUpdate() => hasWaitingWebAppUpdateImpl();
+
+/// Whether the HTML overlay already offered the PWA update.
+bool htmlPwaUpdatePromptShown() => htmlPwaUpdatePromptShownImpl();

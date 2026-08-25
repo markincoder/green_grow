@@ -1,7 +1,7 @@
 name: green_grow
-description: Приложение для выращивания микрозелени дома — каталог, лотки и советы по уходу.
+description: Приложение для выращивания микрозелени дома — база знаний, прогресс роста и напоминания.
 publish_to: "none"
-version: 1.0.7+8
+version: 1.0.11+12
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -46,6 +46,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/radish.png
+    - assets/plants/
     - assets/logo_agronizer.png
     - assets/logo_microgreens.png
     - assets/logo_agronizer_word.png

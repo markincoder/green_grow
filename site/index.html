@@ -16,12 +16,21 @@
   <meta property="og:url" content="https://agronizer.ru/" />
   <meta property="og:title" content="Агронайзер — приложение для выращивания микрозелени" />
   <meta property="og:description" content="Приложение для микрозелени: база сортов, циклы и напоминания. Выращивание микрозелени дома." />
-  <meta property="og:image" content="https://agronizer.ru/assets/microgreens-hero.png" />
+  <meta property="og:image" content="https://agronizer.ru/assets/microgreens-hero.jpg" />
   <meta property="og:image:alt" content="Выращивание микрозелени дома" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Агронайзер — приложение для микрозелени" />
   <meta name="twitter:description" content="Выращивание микрозелени дома: база сортов, циклы и напоминания." />
-  <meta name="twitter:image" content="https://agronizer.ru/assets/microgreens-hero.png" />
+  <meta name="twitter:image" content="https://agronizer.ru/assets/microgreens-hero.jpg" />
+  <link
+    rel="preload"
+    as="image"
+    href="assets/microgreens-hero-sm.webp"
+    imagesrcset="assets/microgreens-hero-sm.webp 900w, assets/microgreens-hero.webp 1600w"
+    imagesizes="100vw"
+    type="image/webp"
+    fetchpriority="high"
+  />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -1009,13 +1018,23 @@
   </div>
   <header class="hero">
     <div class="hero__media" aria-hidden="true">
-      <img
-        src="assets/microgreens-hero.png"
-        alt=""
-        width="1920"
-        height="1080"
-        fetchpriority="high"
-      />
+      <picture>
+        <source
+          type="image/webp"
+          srcset="assets/microgreens-hero-sm.webp 900w, assets/microgreens-hero.webp 1600w"
+          sizes="100vw"
+        />
+        <img
+          src="assets/microgreens-hero.jpg"
+          srcset="assets/microgreens-hero-sm.jpg 900w, assets/microgreens-hero.jpg 1600w"
+          sizes="100vw"
+          alt=""
+          width="1600"
+          height="1067"
+          fetchpriority="high"
+          decoding="async"
+        />
+      </picture>
     </div>
     <div class="hero__shade" aria-hidden="true"></div>
     <div class="hero__content">
@@ -1104,13 +1123,23 @@
         </div>
       </div>
       <figure class="story__photo">
-        <img
-          src="assets/microgreens-story.png"
-          alt="Выращивание микрозелени дома в контейнерах на свету"
-          width="1200"
-          height="1600"
-          loading="lazy"
-        />
+        <picture>
+          <source
+            type="image/webp"
+            srcset="assets/microgreens-story-sm.webp 900w, assets/microgreens-story.webp 1600w"
+            sizes="(max-width: 900px) 100vw, 42vw"
+          />
+          <img
+            src="assets/microgreens-story.jpg"
+            srcset="assets/microgreens-story-sm.jpg 900w, assets/microgreens-story.jpg 1600w"
+            sizes="(max-width: 900px) 100vw, 42vw"
+            alt="Выращивание микрозелени дома в контейнерах на свету"
+            width="1600"
+            height="2133"
+            loading="lazy"
+            decoding="async"
+          />
+        </picture>
       </figure>
     </div>
   </section>

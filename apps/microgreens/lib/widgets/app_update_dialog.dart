@@ -7,12 +7,11 @@ import '../state/access_store.dart';
 import '../theme/app_theme.dart';
 
 Future<void> showAppUpdateDialog(BuildContext context, AccessStore access) {
-  final auto = kIsWeb;
   return showDialog<void>(
     context: context,
     builder: (ctx) => AlertDialog(
-      title: const Text('Доступно обновление'),
-      content: Text(_message(access, auto: auto)),
+      title: const Text('Обнаружено обновление'),
+      content: Text(_message(access, auto: kIsWeb)),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
@@ -21,7 +20,7 @@ Future<void> showAppUpdateDialog(BuildContext context, AccessStore access) {
         FilledButton(
           onPressed: () async {
             Navigator.pop(ctx);
-            if (auto) {
+            if (kIsWeb) {
               await applyWebAppUpdate();
               return;
             }
@@ -34,7 +33,7 @@ Future<void> showAppUpdateDialog(BuildContext context, AccessStore access) {
             backgroundColor: AppColors.leaf,
             foregroundColor: Colors.white,
           ),
-          child: const Text('Обновить'),
+          child: const Text('Установить'),
         ),
       ],
     ),
@@ -47,9 +46,9 @@ String _message(AccessStore access, {required bool auto}) {
       ? 'Доступна версия $remote.'
       : 'Доступна новая версия приложения.';
   if (auto) {
-    return '$headline Нажмите «Обновить» — приложение перезагрузится само.';
+    return '$headline Установить сейчас? Страница перезагрузится.';
   }
   return '$headline Автоматически установить нельзя.\n\n'
-      'Нажмите «Обновить», откройте скачанный файл и подтвердите установку '
+      'Нажмите «Установить», откройте скачанный файл и подтвердите установку '
       'поверх текущей версии.';
 }

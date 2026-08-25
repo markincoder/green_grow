@@ -1,6 +1,16 @@
-enum Difficulty { easy, medium, hard }
-
 enum GrowthStage { soak, germinate, grow, harvest }
+
+/// How the tray is pressed during germination.
+enum PressKind {
+  /// No press — film/lid only.
+  none,
+
+  /// Press with an empty upper tray (no kg weight).
+  upperTray,
+
+  /// Weighted press in kilograms.
+  weight,
+}
 
 class Plant {
   const Plant({
@@ -8,12 +18,15 @@ class Plant {
     required this.name,
     required this.description,
     required this.icon,
-    required this.difficulty,
-    required this.seedGrams,
+    this.listImage,
+    this.cardImage,
+    required this.seedGramsMin,
+    required this.seedGramsMax,
     this.soakHoursMin,
     this.soakHoursMax,
     required this.germinateHoursMin,
     required this.germinateHoursMax,
+    this.pressKind = PressKind.none,
     this.pressKgMin,
     this.pressKgMax,
     this.growDaysMin,
@@ -23,17 +36,29 @@ class Plant {
     required this.soil,
     required this.tips,
     required this.tags,
+    this.benefit,
+    this.taste,
+    this.storage,
+    this.tray,
     this.feature,
   });
 
   final String id;
   final String name;
   final String description;
-  final String icon;
-  final Difficulty difficulty;
 
-  /// Seed weight for a 13×18 tray, grams.
-  final int seedGrams;
+  /// Emoji fallback (unused for photos; prefer [defaultPhoto]).
+  final String icon;
+
+  /// Photo for catalog list (`…1.jpg`). Null → [defaultPhoto].
+  final String? listImage;
+
+  /// Extra photo for culture card (`…2.jpg`). Null → only [listImage] / default.
+  final String? cardImage;
+
+  /// Seed weight range for a 13×18 tray, grams.
+  final double seedGramsMin;
+  final double seedGramsMax;
 
   /// Hours of soaking. Both null = no soak stage.
   final int? soakHoursMin;
@@ -43,7 +68,9 @@ class Plant {
   final int germinateHoursMin;
   final int germinateHoursMax;
 
-  /// Optional tray press weight during germination (kg).
+  final PressKind pressKind;
+
+  /// Tray press weight during germination (kg). Only for [PressKind.weight].
   final double? pressKgMin;
   final double? pressKgMax;
 
@@ -57,12 +84,46 @@ class Plant {
   final List<String> tips;
   final List<String> tags;
 
+  final String? benefit;
+  final String? taste;
+  final String? storage;
+  final String? tray;
+
   /// Extra note from the cultivation table.
   final String? feature;
 
+  /// Fallback photo when culture has no `…1` / `…2` assets.
+  static const defaultPhoto = 'assets/plants/default1.jpg';
+
+  /// Default seed grams when starting a tray (upper bound, rounded).
+  int get seedGrams {
+    final v = seedGramsMax;
+    return v == v.roundToDouble() ? v.toInt() : v.ceil();
+  }
+
+  String get seedGramsLabel {
+    final a = _grams(seedGramsMin);
+    final b = _grams(seedGramsMax);
+    if (a == b) return '$a г';
+    return '$a–$b г';
+  }
+
+  /// Avatar for list / garden tiles.
+  String get listAvatar => listImage ?? defaultPhoto;
+
+  /// Photos for the culture detail card (1, or 1+2 carousel). Never empty.
+  List<String> get cardPhotos {
+    final photos = <String>[];
+    if (listImage != null) photos.add(listImage!);
+    if (cardImage != null && cardImage != listImage) photos.add(cardImage!);
+    if (photos.isEmpty) return const [defaultPhoto];
+    return photos;
+  }
+
   bool get needsSoak => soakHoursMin != null;
 
-  bool get needsPress => pressKgMin != null;
+  bool get needsPress =>
+      pressKind == PressKind.weight || pressKind == PressKind.upperTray;
 
   bool get hasGerminateStage => germinateHoursMax > 0;
 
@@ -111,12 +172,6 @@ class Plant {
 
   int get germinateHoursMaxTiming => germinateHoursMax;
 
-  String get difficultyLabel => switch (difficulty) {
-        Difficulty.easy => 'Легко',
-        Difficulty.medium => 'Средне',
-        Difficulty.hard => 'Сложно',
-      };
-
   String get soakLabel {
     if (!needsSoak) return 'Не нужно';
     final min = soakHoursMin!;
@@ -148,11 +203,17 @@ class Plant {
   }
 
   String get pressLabel {
-    if (!needsPress) return 'Без прижима (под плёнкой/крышкой)';
-    final min = pressKgMin!;
-    final max = pressKgMax ?? min;
-    if (min == max) return '${_kg(min)} кг';
-    return '${_kg(min)}–${_kg(max)} кг';
+    switch (pressKind) {
+      case PressKind.none:
+        return 'Без прижима';
+      case PressKind.upperTray:
+        return 'Верхним лотком';
+      case PressKind.weight:
+        final min = pressKgMin!;
+        final max = pressKgMax ?? min;
+        if (min == max) return '${_kg(min)} кг';
+        return '${_kg(min)}–${_kg(max)} кг';
+    }
   }
 
   String get growLabel {
@@ -221,14 +282,19 @@ class Plant {
 
   String stageHint(GrowthStage stage) => switch (stage) {
         GrowthStage.soak => 'Семена ещё в воде',
-        GrowthStage.germinate => needsPress
-            ? 'В темноте под крышкой, с прижимом'
-            : 'В темноте под плёнкой/крышкой',
-        GrowthStage.grow => 'Уже на свету, без крышки',
+        GrowthStage.germinate => switch (pressKind) {
+            PressKind.none => 'В темноте',
+            PressKind.upperTray => 'В темноте, прижим верхним лотком',
+            PressKind.weight => 'В темноте, с прижимом',
+          },
+        GrowthStage.grow => 'Уже на свету',
         GrowthStage.harvest => 'Пора срезать',
       };
 
   static String _kg(double v) =>
+      v == v.roundToDouble() ? '${v.toInt()}' : v.toString();
+
+  static String _grams(double v) =>
       v == v.roundToDouble() ? '${v.toInt()}' : v.toString();
 
   static String _hoursLabel(int hours) {

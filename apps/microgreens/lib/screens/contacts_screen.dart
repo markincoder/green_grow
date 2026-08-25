@@ -67,11 +67,6 @@ class ContactsScreen extends StatelessWidget {
                   'Контакты',
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  'Каналы в соцсетях',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
                 const SizedBox(height: 20),
                 _ContactList(
                   links: _links,

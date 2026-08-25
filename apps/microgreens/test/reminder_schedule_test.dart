@@ -303,7 +303,7 @@ void main() {
         day: DateTime(2026, 8, 8),
         digestAt: DateTime(2026, 8, 8, 17, 59),
       ),
-      isNull,
+      contains('посеять сегодня с 18:00'),
     );
     expect(
       ReminderService.buildDailyDigestBody(
@@ -357,7 +357,7 @@ void main() {
         day: DateTime(2026, 8, 20),
         digestAt: DateTime(2026, 8, 20, 18, 16),
       ),
-      isNull,
+      contains('посеять сегодня с 20:00'),
     );
     expect(
       ReminderService.scheduleDateTime(
@@ -416,7 +416,7 @@ void main() {
     expect(soakId, isNot(germId));
   });
 
-  test('germinate reminder uses catalog hours, not calendar day', () {
+  test('germinate reminder appears on due calendar day before the exact hour', () {
     final arugula = plantById('arugula_mg')!;
     final started = DateTime(2026, 8, 8, 10, 0);
     final garden = GardenPlant(
@@ -433,20 +433,85 @@ void main() {
       DateTime(2026, 8, 10, 10, 0),
     );
 
-    final before = ReminderService.buildTodayReminders(
+    final beforeHour = ReminderService.buildTodayReminders(
       plants: [garden],
       day: DateTime(2026, 8, 10),
       now: DateTime(2026, 8, 10, 9, 59),
     );
-    expect(before, isEmpty);
+    expect(beforeHour, hasLength(1));
+    expect(beforeHour.single.actionLabel, 'раскрыть');
 
-    final after = ReminderService.buildTodayReminders(
+    final dayBefore = ReminderService.buildTodayReminders(
+      plants: [garden],
+      day: DateTime(2026, 8, 9),
+      now: DateTime(2026, 8, 9, 23, 0),
+    );
+    expect(dayBefore, isEmpty);
+
+    final afterHour = ReminderService.buildTodayReminders(
       plants: [garden],
       day: DateTime(2026, 8, 10),
       now: DateTime(2026, 8, 10, 10, 0),
     );
-    expect(after, hasLength(1));
-    expect(after.single.actionLabel, 'раскрыть');
+    expect(afterHour, hasLength(1));
+    expect(afterHour.single.actionLabel, 'раскрыть');
+  });
+
+  test('digest keeps uncover after harvest sibling is dismissed', () {
+    final onion = plantById('10016')!; // Лук
+    final cress = plantById('cress')!;
+    final day = DateTime(2026, 8, 25);
+    final digestAt = DateTime(2026, 8, 25, 20, 25);
+
+    // Backdated uncover: due long before tray was added — home still lists it.
+    final luk = GardenPlant(
+      id: 'g-luk',
+      plantId: onion.id,
+      startedAt: DateTime(2026, 8, 14, 12),
+      lastWateredAt: DateTime(2026, 8, 14, 12),
+      stage: GrowthStage.germinate,
+      stageChangedAt: DateTime(2026, 8, 14, 12),
+      createdAt: DateTime(2026, 8, 22, 15),
+      customName: 'Лук-шнитт',
+    );
+    final kress = GardenPlant(
+      id: 'g-cress',
+      plantId: cress.id,
+      startedAt: DateTime(2026, 8, 14, 12),
+      lastWateredAt: DateTime(2026, 8, 14, 12),
+      stage: GrowthStage.grow,
+      stageChangedAt: DateTime(2026, 8, 18, 12),
+      createdAt: DateTime(2026, 8, 14, 12),
+      customName: 'Кресс-салат',
+    );
+
+    expect(ReminderService.skipMissedPhasePushFor(
+      kind: DueActionKind.toLight,
+      dueAt: luk.germinateReminderAt(onion),
+      createdAt: luk.createdAt,
+    ), isTrue);
+
+    final both = ReminderService.buildDailyDigestBody(
+      plants: [luk, kress],
+      day: day,
+      digestAt: digestAt,
+    );
+    expect(both, contains('Лук-шнитт от 14 авг'));
+    expect(both, contains('раскрыть'));
+    expect(both, contains('Кресс-салат от 14 авг'));
+    expect(both, contains('собрать'));
+
+    final afterDismiss = ReminderService.buildDailyDigestBody(
+      plants: [luk, kress],
+      day: day,
+      dismissedKeys: {
+        SettingsStore.gardenActionKey(kress.id, DueActionKind.harvest, day),
+      },
+      digestAt: digestAt,
+    );
+    expect(afterDismiss, contains('Лук-шнитт от 14 авг'));
+    expect(afterDismiss, contains('раскрыть'));
+    expect(afterDismiss, isNot(contains('Кресс-салат')));
   });
 
   test('backdated tray does not push soak/to-light that were due before it was added', () {
@@ -483,13 +548,14 @@ void main() {
     expect(home, hasLength(1));
     expect(home.single.kind, DueActionKind.sow);
 
+    // Digest mirrors home; exact-hour tray push still skips missed phases.
     expect(
       ReminderService.buildDailyDigestBody(
         plants: [soaking],
         day: DateTime(2026, 8, 22),
         digestAt: added,
       ),
-      isNull,
+      contains('Горох от 18 авг'),
     );
 
     final germinating = GardenPlant(
@@ -509,7 +575,7 @@ void main() {
         day: DateTime(2026, 8, 22),
         digestAt: added,
       ),
-      isNull,
+      contains('Рукола от 18 авг'),
     );
   });
 

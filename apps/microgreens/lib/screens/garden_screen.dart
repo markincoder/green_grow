@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/plants_data.dart';
 import '../models/plant.dart';
+import '../state/favorites_store.dart';
 import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
@@ -12,10 +13,12 @@ class GardenScreen extends StatefulWidget {
   const GardenScreen({
     super.key,
     required this.store,
+    required this.favorites,
     required this.onAddPlant,
   });
 
   final GardenStore store;
+  final FavoritesStore favorites;
   final VoidCallback onAddPlant;
 
   @override
@@ -230,6 +233,7 @@ class _GardenScreenState extends State<GardenScreen> {
                               builder: (_) => PlantDetailScreen(
                                 plant: plant,
                                 store: widget.store,
+                                favorites: widget.favorites,
                                 gardenPlant: gardenPlant,
                               ),
                             ),
@@ -241,7 +245,7 @@ class _GardenScreenState extends State<GardenScreen> {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                PlantAvatar(icon: plant.icon, size: 56),
+                                PlantAvatar(icon: plant.listAvatar, size: 56),
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: Column(

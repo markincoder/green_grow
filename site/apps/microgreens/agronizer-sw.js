@@ -2,8 +2,10 @@
  * Copied over flutter_service_worker.js after `flutter build web`
  * because current Flutter emits an uninstall stub by default.
  *
- * Cache-first (stale-while-revalidate) so the installed PWA opens from disk
- * instead of waiting on the network. Updates apply in the background.
+ * Shell assets: stale-while-revalidate for offline open.
+ * Update-critical files (index, pwa_update, version, bootstrap): network-first
+ * so a waiting worker can offer the update dialog without a stale shell.
+ * New builds wait for SKIP_WAITING before replacing the active worker.
  */
 'use strict';
 
@@ -19,10 +21,22 @@ const PRECACHE = [
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE).catch(() => undefined))
-      .then(() => self.skipWaiting()),
+    (async () => {
+      const cache = await caches.open(CACHE);
+      await cache.addAll(PRECACHE).catch(() => undefined);
+      // First install: activate immediately. Updates wait for SKIP_WAITING.
+      if (!self.registration.active) {
+        await self.skipWaiting();
+        return;
+      }
+      const list = await self.clients.matchAll({
+        type: 'window',
+        includeUncontrolled: true,
+      });
+      for (const client of list) {
+        client.postMessage({ type: 'AGRONIZER_UPDATE_READY' });
+      }
+    })(),
   );
 });
 
@@ -33,18 +47,42 @@ self.addEventListener('message', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      const keys = await caches.keys();
-      await Promise.all(
-        keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)),
-      );
       await self.clients.claim();
+      // Delay wiping old shell caches so the first paint after update can
+      // still fall back to previous assets if the network is slow.
+      setTimeout(() => {
+        caches.keys().then((keys) => {
+          for (const k of keys) {
+            if (k.startsWith('microgreens-shell-') && k !== CACHE) {
+              caches.delete(k);
+            }
+          }
+        });
+      }, 45000);
     })(),
   );
 });
 
+async function matchShellCaches(req) {
+  const keys = await caches.keys();
+  // Prefer current CACHE, then any older microgreens shell.
+  const ordered = keys
+    .filter((k) => k.startsWith('microgreens-shell-'))
+    .sort((a, b) => {
+      if (a === CACHE) return -1;
+      if (b === CACHE) return 1;
+      return b.localeCompare(a);
+    });
+  for (const k of ordered) {
+    const hit = await caches.open(k).then((c) => c.match(req));
+    if (hit) return hit;
+  }
+  return undefined;
+}
+
 async function staleWhileRevalidate(req, { fallbackToIndex }) {
   const cache = await caches.open(CACHE);
-  const cached = await cache.match(req);
+  const cached = (await cache.match(req)) || (await matchShellCaches(req));
   const network = fetch(req)
     .then((res) => {
       if (res && res.ok && res.type === 'basic') {
@@ -57,7 +95,9 @@ async function staleWhileRevalidate(req, { fallbackToIndex }) {
   const fresh = await network;
   if (fresh) return fresh;
   if (fallbackToIndex) {
-    const shell = await cache.match('./index.html');
+    const shell =
+      (await cache.match('./index.html')) ||
+      (await matchShellCaches(new Request('./index.html')));
     if (shell) return shell;
   }
   return Response.error();
@@ -65,7 +105,7 @@ async function staleWhileRevalidate(req, { fallbackToIndex }) {
 
 async function networkFirst(req, timeoutMs) {
   const cache = await caches.open(CACHE);
-  const cached = cache.match(req);
+  const cachedPromise = matchShellCaches(req);
   try {
     const fresh = await Promise.race([
       fetch(req),
@@ -73,14 +113,27 @@ async function networkFirst(req, timeoutMs) {
         setTimeout(() => reject(new Error('timeout')), timeoutMs);
       }),
     ]);
-    if (fresh && fresh.ok && fresh.type === 'basic') {
+    if (fresh && fresh.ok && (fresh.type === 'basic' || fresh.type === 'cors')) {
       cache.put(req, fresh.clone()).catch(() => undefined);
       return fresh;
     }
   } catch (_) {}
-  const fallback = await cached;
+  const fallback = await cachedPromise;
   if (fallback) return fallback;
   return fetch(req);
+}
+
+function isNetworkCritical(url, isDoc) {
+  if (isDoc) return true;
+  const path = url.pathname;
+  return (
+    path.endsWith('/version.json') ||
+    path.endsWith('/pwa_update.js') ||
+    path.endsWith('/flutter_bootstrap.js') ||
+    path.endsWith('/flutter.js') ||
+    path.endsWith('/index.html') ||
+    /\/main\.dart\.js$/i.test(path)
+  );
 }
 
 self.addEventListener('fetch', (event) => {
@@ -98,10 +151,9 @@ self.addEventListener('fetch', (event) => {
   const isDoc =
     req.mode === 'navigate' ||
     (req.headers.get('accept') || '').includes('text/html');
-  const isVersion = url.pathname.endsWith('/version.json');
 
-  if (isVersion) {
-    event.respondWith(networkFirst(req, 2500));
+  if (isNetworkCritical(url, isDoc)) {
+    event.respondWith(networkFirst(req, 4000));
     return;
   }
 

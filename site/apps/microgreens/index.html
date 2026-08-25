@@ -36,30 +36,91 @@
       justify-content: center;
       background: #F3FAF5;
       z-index: 9999;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    #agronizer-splash .ag-splash-inner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      padding: 24px;
+      text-align: center;
+      max-width: 320px;
     }
     #agronizer-splash img {
       width: 96px;
       height: 96px;
     }
+    #agronizer-splash-msg {
+      margin: 0;
+      color: #1A2E24;
+      font-size: 1.05rem;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    #agronizer-splash-msg[hidden] {
+      display: none !important;
+    }
+    #agronizer-splash-spin {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(45, 106, 79, 0.2);
+      border-top-color: #2D6A4F;
+      border-radius: 50%;
+      animation: ag-spin 0.8s linear infinite;
+    }
+    #agronizer-splash-spin[hidden] {
+      display: none !important;
+    }
+    @keyframes ag-spin {
+      to { transform: rotate(360deg); }
+    }
   </style>
+  <script>
+    /* Show install copy before paint when a PWA update reload is in progress. */
+    (function () {
+      try {
+        if (sessionStorage.getItem('pwa_applying_update') === '1') {
+          document.documentElement.classList.add('ag-updating');
+        }
+      } catch (_) {}
+    })();
+  </script>
   <script src="push_client.js?v=sub27" defer></script>
   <!-- Icon install on this page (SW scope). Chrome uses beforeinstallprompt. -->
   <script src="setup_gate.js?v=gate66" defer></script>
-  <script src="pwa_update.js?v=1.0.7+8-f9c38f78" defer></script>
-  <script src="flutter_bootstrap.js?v=1.0.7+8-f9c38f78" async></script>
+  <script src="pwa_update.js?v=1.0.11+12-5c7b5b79" defer></script>
+  <script src="flutter_bootstrap.js?v=1.0.11+12-5c7b5b79" async></script>
 </head>
 <body>
   <div id="agronizer-splash">
-    <img src="icons/Icon-192.png" alt="">
+    <div class="ag-splash-inner">
+      <img src="icons/Icon-192.png" alt="">
+      <div id="agronizer-splash-spin" hidden aria-hidden="true"></div>
+      <p id="agronizer-splash-msg" hidden>Идёт установка, пожалуйста, подождите.</p>
+    </div>
   </div>
   <script>
     (function () {
+      var updating = document.documentElement.classList.contains('ag-updating');
+      if (updating) {
+        var msg = document.getElementById('agronizer-splash-msg');
+        var spin = document.getElementById('agronizer-splash-spin');
+        if (msg) msg.hidden = false;
+        if (spin) spin.hidden = false;
+        document.title = 'Установка…';
+      }
+
       function hide() {
+        try {
+          sessionStorage.removeItem('pwa_applying_update');
+        } catch (_) {}
+        document.documentElement.classList.remove('ag-updating');
         var el = document.getElementById('agronizer-splash');
         if (el) el.remove();
       }
       window.addEventListener('flutter-first-frame', hide);
-      setTimeout(hide, 20000);
+      setTimeout(hide, updating ? 60000 : 20000);
     })();
   </script>
 </body>

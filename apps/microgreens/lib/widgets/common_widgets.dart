@@ -72,23 +72,17 @@ class SoftPanel extends StatelessWidget {
   }
 }
 
-class DifficultyBadge extends StatelessWidget {
-  const DifficultyBadge({super.key, required this.difficulty});
+class TagBadge extends StatelessWidget {
+  const TagBadge({super.key, required this.label});
 
-  final Difficulty difficulty;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (difficulty) {
-      Difficulty.easy => ('Легко', AppColors.sprout),
-      Difficulty.medium => ('Средне', AppColors.sun),
-      Difficulty.hard => ('Сложно', const Color(0xFFE07A5F)),
-    };
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.18),
+        color: AppColors.leaf.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
@@ -175,11 +169,11 @@ class PlantAvatar extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: _isAsset
           ? Padding(
-              padding: EdgeInsets.all(size * 0.08),
+              padding: EdgeInsets.all(size * 0.06),
               child: Image.asset(
                 icon,
-                width: size * 0.84,
-                height: size * 0.84,
+                width: size,
+                height: size,
                 fit: BoxFit.contain,
               ),
             )
@@ -208,7 +202,7 @@ class StageTimeline extends StatelessWidget {
           title: 'Проращивание',
           detail: plant.germinateLabel,
           note: plant.needsPress
-              ? 'В темноте, с крышкой, прижим ${plant.pressLabel}'
+              ? 'В темноте, прижим ${plant.pressLabel}'
               : plant.pressLabel,
           glyph: StageGlyphKind.germinate,
         ),
@@ -216,7 +210,7 @@ class StageTimeline extends StatelessWidget {
         _StageInfo(
           title: 'Рост',
           detail: plant.growLabel,
-          note: 'На свету, без крышки. Вода на дне, проверка раз в день',
+          note: 'На свету. Нижний полив: проверить уровень воды',
           glyph: StageGlyphKind.grow,
         ),
     ];
@@ -661,7 +655,7 @@ class _StartDateSheetState extends State<_StartDateSheet> {
               ],
               const SizedBox(height: 12),
               Text(
-                '${plant.seedGrams} г семян на лоток 13×18',
+                '${plant.seedGramsLabel} семян на лоток 13×18',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: AppColors.ink,
                       fontWeight: FontWeight.w600,

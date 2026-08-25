@@ -1,21 +1,25 @@
 import 'package:flutter/material.dart';
 
 import '../models/plant.dart';
+import '../state/favorites_store.dart';
 import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/favorite_star.dart';
 
 class PlantDetailScreen extends StatelessWidget {
   const PlantDetailScreen({
     super.key,
     required this.plant,
     required this.store,
+    required this.favorites,
     this.gardenPlant,
     this.onPlantAdded,
   });
 
   final Plant plant;
   final GardenStore store;
+  final FavoritesStore favorites;
   final GardenPlant? gardenPlant;
   final VoidCallback? onPlantAdded;
 
@@ -51,18 +55,32 @@ class PlantDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: store,
+      animation: Listenable.merge([store, favorites]),
       builder: (context, _) {
         final now = DateTime.now();
         final gpId = gardenPlant?.id;
         final gp = gpId == null
             ? null
             : store.plants.where((p) => p.id == gpId).firstOrNull;
+        final isFavorite = favorites.isFavorite(plant.id);
 
         return Scaffold(
           backgroundColor: AppColors.canvas,
           appBar: AppBar(
             title: Text(plant.name),
+            actions: [
+              if (gp != null)
+                IconButton(
+                  tooltip: isFavorite
+                      ? 'Убрать из избранного'
+                      : 'В избранное',
+                  onPressed: () => favorites.toggle(plant.id),
+                  icon: FavoriteStar(
+                    filled: isFavorite,
+                    size: 20,
+                  ),
+                ),
+            ],
           ),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -115,24 +133,81 @@ class PlantDetailScreen extends StatelessWidget {
               else ...[
                 SoftPanel(
                   color: AppColors.mist.withValues(alpha: 0.65),
-                  child: Row(
+                  padding: EdgeInsets.zero,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      PlantAvatar(
-                        icon: plant.icon,
-                        size: 72,
-                        background: Colors.white,
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
+                      _PlantPhotoCarousel(photos: plant.cardPhotos),
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              plant.name,
-                              style: Theme.of(context).textTheme.headlineSmall,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    plant.name,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .headlineSmall,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  tooltip: isFavorite
+                                      ? 'Убрать из избранного'
+                                      : 'В избранное',
+                                  onPressed: () =>
+                                      favorites.toggle(plant.id),
+                                  visualDensity: VisualDensity.compact,
+                                  style: IconButton.styleFrom(
+                                    minimumSize: const Size(36, 36),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    padding: const EdgeInsets.all(4),
+                                  ),
+                                  icon: FavoriteStar(
+                                    filled: isFavorite,
+                                    size: 20,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 8),
-                            DifficultyBadge(difficulty: plant.difficulty),
+                            if (plant.tags.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: plant.tags
+                                    .map(
+                                      (tag) => Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.leaf
+                                              .withValues(alpha: 0.14),
+                                          borderRadius:
+                                              BorderRadius.circular(999),
+                                        ),
+                                        child: Text(
+                                          tag,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelMedium
+                                              ?.copyWith(
+                                                color: AppColors.forest,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -161,6 +236,20 @@ class PlantDetailScreen extends StatelessWidget {
                   plant.description,
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
+                if (plant.taste != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Вкус: ${plant.taste}',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ],
+                if (plant.benefit != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    'Польза: ${plant.benefit}',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ],
               ],
               const SizedBox(height: 24),
               Text('Стадии', style: Theme.of(context).textTheme.titleLarge),
@@ -174,53 +263,43 @@ class PlantDetailScreen extends StatelessWidget {
                 runSpacing: 10,
                 children: [
                   _InfoChip(
-                    icon: Icons.scale_outlined,
-                    label: '${gp?.seedGrams ?? plant.seedGrams} г на лоток 13×18',
-                  ),
-                  _InfoChip(icon: Icons.wb_sunny_outlined, label: plant.light),
-                  _InfoChip(icon: Icons.thermostat, label: plant.temperature),
-                  _InfoChip(icon: Icons.grass, label: plant.soil),
-                  _InfoChip(
                     icon: Icons.schedule,
                     label: 'Полный цикл ${plant.cycleDaysLabel}',
                   ),
+                  _InfoChip(
+                    icon: Icons.scale_outlined,
+                    label: gp?.seedGrams != null
+                        ? '${gp!.seedGrams} г на лоток 13×18'
+                        : '${plant.seedGramsLabel} на лоток 13×18',
+                  ),
+                  if (plant.tray != null)
+                    _InfoChip(
+                      glyph: _ConditionGlyph.tray,
+                      label: 'Лоток: ${plant.tray}',
+                    ),
+                  _InfoChip(
+                    icon: Icons.wb_sunny_outlined,
+                    label: plant.light,
+                  ),
+                  _InfoChip(
+                    icon: Icons.thermostat,
+                    label: plant.temperature,
+                  ),
+                  _InfoChip(
+                    glyph: _ConditionGlyph.mat,
+                    label: plant.soil,
+                  ),
+                  if (plant.storage != null)
+                    _InfoChip(
+                      glyph: _ConditionGlyph.jar,
+                      label: plant.storage!,
+                    ),
                   if (plant.feature != null)
                     _InfoChip(
                       icon: Icons.info_outline_rounded,
                       label: plant.feature!,
                     ),
                 ],
-              ),
-              const SizedBox(height: 24),
-              Text('Советы', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 12),
-              ...plant.tips.map(
-                (tip) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: SoftPanel(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '•  ',
-                          style: TextStyle(color: AppColors.meadow),
-                        ),
-                        Expanded(
-                          child: Text(
-                            tip,
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
-                                ?.copyWith(
-                                  color: AppColors.ink,
-                                ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
               ),
             ],
           ),
@@ -231,9 +310,14 @@ class PlantDetailScreen extends StatelessWidget {
 }
 
 class _InfoChip extends StatelessWidget {
-  const _InfoChip({required this.icon, required this.label});
+  const _InfoChip({
+    this.icon,
+    this.glyph,
+    required this.label,
+  }) : assert(icon != null || glyph != null);
 
-  final IconData icon;
+  final IconData? icon;
+  final _ConditionGlyph? glyph;
   final String label;
 
   @override
@@ -248,7 +332,10 @@ class _InfoChip extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 18, color: AppColors.meadow),
+          if (glyph != null)
+            _ConditionGlyphIcon(kind: glyph!)
+          else
+            Icon(icon, size: 18, color: AppColors.meadow),
           const SizedBox(width: 8),
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 220),
@@ -258,6 +345,182 @@ class _InfoChip extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+enum _ConditionGlyph { tray, jar, mat }
+
+class _ConditionGlyphIcon extends StatelessWidget {
+  const _ConditionGlyphIcon({required this.kind});
+
+  final _ConditionGlyph kind;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 18,
+      height: 18,
+      child: CustomPaint(
+        painter: _ConditionGlyphPainter(kind: kind, color: AppColors.meadow),
+      ),
+    );
+  }
+}
+
+class _ConditionGlyphPainter extends CustomPainter {
+  const _ConditionGlyphPainter({required this.kind, required this.color});
+
+  final _ConditionGlyph kind;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.shortestSide;
+    canvas.save();
+    canvas.scale(s / 24, s / 24);
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8
+      ..strokeJoin = StrokeJoin.round
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
+    final fill = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+    switch (kind) {
+      case _ConditionGlyph.tray:
+        _paintTray(canvas, stroke);
+      case _ConditionGlyph.jar:
+        _paintJar(canvas, stroke, fill);
+      case _ConditionGlyph.mat:
+        _paintMat(canvas, stroke);
+    }
+    canvas.restore();
+  }
+
+  void _paintTray(Canvas canvas, Paint stroke) {
+    // Shallow growing tray seen from an angle.
+    final body = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(3, 10, 18, 9),
+      const Radius.circular(2.2),
+    );
+    canvas.drawRRect(body, stroke);
+    canvas.drawLine(const Offset(5, 10), const Offset(7, 5.5), stroke);
+    canvas.drawLine(const Offset(19, 10), const Offset(17, 5.5), stroke);
+    canvas.drawLine(const Offset(7, 5.5), const Offset(17, 5.5), stroke);
+  }
+
+  void _paintJar(Canvas canvas, Paint stroke, Paint fill) {
+    // Storage jar with lid.
+    final body = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(6.5, 7.5, 11, 13),
+      const Radius.circular(3),
+    );
+    canvas.drawRRect(body, stroke);
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(5.5, 4, 13, 3.8),
+        const Radius.circular(1.2),
+      ),
+      stroke,
+    );
+    canvas.drawCircle(const Offset(12, 13.5), 1.1, fill);
+  }
+
+  void _paintMat(Canvas canvas, Paint stroke) {
+    // Flat grow mat / underlay with stitch lines.
+    final mat = RRect.fromRectAndRadius(
+      const Rect.fromLTWH(3.5, 6.5, 17, 11),
+      const Radius.circular(2),
+    );
+    canvas.drawRRect(mat, stroke);
+    canvas.drawLine(const Offset(6.5, 10), const Offset(17.5, 10), stroke);
+    canvas.drawLine(const Offset(6.5, 14), const Offset(17.5, 14), stroke);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ConditionGlyphPainter oldDelegate) =>
+      oldDelegate.kind != kind || oldDelegate.color != color;
+}
+
+class _PlantPhotoCarousel extends StatefulWidget {
+  const _PlantPhotoCarousel({required this.photos});
+
+  final List<String> photos;
+
+  @override
+  State<_PlantPhotoCarousel> createState() => _PlantPhotoCarouselState();
+}
+
+class _PlantPhotoCarouselState extends State<_PlantPhotoCarousel> {
+  late final PageController _controller = PageController();
+  int _index = 0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final photos = widget.photos;
+    final multi = photos.length > 1;
+
+    return ClipRRect(
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(22)),
+      child: ColoredBox(
+        color: Colors.white,
+        child: Column(
+          children: [
+            AspectRatio(
+              aspectRatio: 4 / 3,
+              child: PageView.builder(
+                controller: _controller,
+                itemCount: photos.length,
+                onPageChanged: (i) => setState(() => _index = i),
+                itemBuilder: (context, i) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                    child: Image.asset(
+                      photos[i],
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                    ),
+                  );
+                },
+              ),
+            ),
+            if (multi)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10, top: 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(photos.length, (i) {
+                    final active = i == _index;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: active ? 16 : 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: active
+                            ? AppColors.leaf
+                            : AppColors.mist.withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    );
+                  }),
+                ),
+              )
+            else
+              const SizedBox(height: 8),
+          ],
+        ),
       ),
     );
   }
