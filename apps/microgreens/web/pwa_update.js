@@ -1,12 +1,13 @@
 /* Offer a confirm dialog when a new service worker is waiting.
- * Reload only after the user accepts (SKIP_WAITING → controllerchange),
- * or once after an activation that happened with no open clients.
+ * Reload only after the user accepts (SKIP_WAITING → controllerchange).
+ * «Позже» dismisses for this waiting worker until the next build.
  */
 (function () {
   if (!('serviceWorker' in navigator)) return;
 
   var FLAG = 'pwa_applying_update';
   var SHOWN = 'pwa_update_prompt_shown';
+  var DISMISSED = 'pwa_update_dismissed';
   var reloading = false;
   var prompted = false;
   var watched = null;
@@ -29,6 +30,12 @@
     } catch (_) {}
   }
 
+  function clearUpdatingFlag() {
+    try {
+      sessionStorage.removeItem(FLAG);
+    } catch (_) {}
+  }
+
   function userAskedUpdate() {
     try {
       return sessionStorage.getItem(FLAG) === '1';
@@ -43,6 +50,41 @@
     } catch (_) {}
     try {
       window.__agronizerPwaUpdatePrompted = true;
+    } catch (_) {}
+  }
+
+  function waitingKey(reg) {
+    try {
+      return (reg && reg.waiting && reg.waiting.scriptURL) || '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function isDismissed(reg) {
+    var key = waitingKey(reg);
+    if (!key) return false;
+    try {
+      return sessionStorage.getItem(DISMISSED) === key;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function markDismissed(reg) {
+    var key = waitingKey(reg);
+    if (!key) return;
+    try {
+      sessionStorage.setItem(DISMISSED, key);
+    } catch (_) {}
+    try {
+      window.__agronizerPwaUpdatePrompted = true;
+    } catch (_) {}
+  }
+
+  function clearDismissed() {
+    try {
+      sessionStorage.removeItem(DISMISSED);
     } catch (_) {}
   }
 
@@ -100,8 +142,7 @@
 
   navigator.serviceWorker.addEventListener('controllerchange', function () {
     if (reloading) return;
-    // Only auto-reload when the user confirmed install. Otherwise a waiting
-    // worker that activated after all tabs closed would "silently" refresh.
+    // Only auto-reload when the user confirmed install.
     if (!userAskedUpdate()) return;
     reloading = true;
     showInstallingScreen();
@@ -111,14 +152,30 @@
   function applyWaiting(reg) {
     var waiting = reg && reg.waiting;
     if (!waiting) return;
+    clearDismissed();
     setUpdatingFlag();
     waiting.postMessage('SKIP_WAITING');
+  }
+
+  function dismissPrompt(overlay, reg) {
+    markDismissed(reg);
+    markPromptShown();
+    prompted = true;
+    clearUpdatingFlag();
+    if (!overlay) return;
+    // Block ghost clicks that would hit «Установить» / Flutter under the overlay.
+    overlay.style.pointerEvents = 'none';
+    setTimeout(function () {
+      if (overlay.parentNode) overlay.remove();
+    }, 400);
   }
 
   function showPrompt(reg) {
     if (!reg || !reg.waiting) return;
     if (!navigator.serviceWorker.controller) return;
+    if (isDismissed(reg)) return;
     if (document.getElementById('agronizer-update-prompt')) return;
+    if (document.getElementById('agronizer-installing')) return;
     if (prompted) return;
     prompted = true;
     markPromptShown();
@@ -168,23 +225,40 @@
       'flex:1.2;min-height:44px;border:none;border-radius:14px;background:#2D6A4F;' +
       'color:#fff;font-size:1rem;font-weight:700;cursor:pointer';
 
-    later.addEventListener('click', function () {
-      overlay.remove();
-      prompted = false;
+    later.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+      later.disabled = true;
+      install.disabled = true;
+      dismissPrompt(overlay, reg);
     });
-    install.addEventListener('click', function () {
+    install.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
       install.disabled = true;
       later.disabled = true;
-      overlay.remove();
+      if (overlay.parentNode) overlay.remove();
       showInstallingScreen();
       applyWaiting(reg);
       // Fallback reload if controllerchange does not fire promptly.
       setTimeout(function () {
-        if (!reloading) {
+        if (!reloading && userAskedUpdate()) {
           reloading = true;
           location.reload();
         }
       }, 2500);
+    });
+
+    // Backdrop tap = Later (do not install).
+    overlay.addEventListener('click', function (e) {
+      if (e.target !== overlay) return;
+      e.preventDefault();
+      e.stopPropagation();
+      later.disabled = true;
+      install.disabled = true;
+      dismissPrompt(overlay, reg);
     });
 
     actions.appendChild(later);
@@ -214,6 +288,8 @@
     if (watched !== reg) {
       watched = reg;
       reg.addEventListener('updatefound', function () {
+        // New worker hash → allow prompting again for the new build.
+        prompted = false;
         trackInstalling(reg.installing, reg);
       });
     }
@@ -287,11 +363,23 @@
   }
 
   window.agronizerBeginPwaInstall = showInstallingScreen;
+  window.agronizerDismissPwaUpdate = function () {
+    navigator.serviceWorker.getRegistration(scopeUrl()).then(function (reg) {
+      if (!reg) return;
+      var overlay = document.getElementById('agronizer-update-prompt');
+      dismissPrompt(overlay, reg);
+    });
+  };
   window.agronizerHasWaitingUpdate = function () {
     return navigator.serviceWorker
       .getRegistration(scopeUrl())
       .then(function (reg) {
-        return !!(reg && reg.waiting && navigator.serviceWorker.controller);
+        return !!(
+          reg &&
+          reg.waiting &&
+          navigator.serviceWorker.controller &&
+          !isDismissed(reg)
+        );
       });
   };
 })();

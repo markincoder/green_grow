@@ -20,12 +20,29 @@ class FavoriteStar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final resolved = color ?? (filled ? AppColors.sun : AppColors.leaf);
-    return SizedBox(
+    final star = SizedBox(
       width: size,
       height: size,
       child: CustomPaint(
         painter: _StarPainter(filled: filled, color: resolved),
       ),
+    );
+    if (!filled) return star;
+
+    final box = size + 10;
+    return Container(
+      width: box,
+      height: box,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(box * 0.28),
+        border: Border.all(
+          color: AppColors.leaf.withValues(alpha: 0.5),
+          width: 1.25,
+        ),
+      ),
+      child: star,
     );
   }
 }

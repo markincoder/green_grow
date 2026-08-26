@@ -1,7 +1,7 @@
 name: green_grow
 description: Приложение для выращивания микрозелени дома — база знаний, прогресс роста и напоминания.
 publish_to: "none"
-version: 1.0.11+12
+version: 1.0.14+15
 
 environment:
   sdk: ">=3.4.0 <4.0.0"

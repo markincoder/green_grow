@@ -217,13 +217,13 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                                   'Полный цикл ${plant.cycleDaysLabel}',
                                                   style: Theme.of(context)
                                                       .textTheme
-                                                      .bodySmall,
+                                                      .bodyMedium,
                                                 ),
                                                 Text(
                                                   '${plant.seedGramsLabel} на лоток',
                                                   style: Theme.of(context)
                                                       .textTheme
-                                                      .bodySmall,
+                                                      .bodyMedium,
                                                 ),
                                               ],
                                             ),
@@ -339,7 +339,7 @@ class _FavoriteFilterChip extends StatelessWidget {
             child: Center(
               child: FavoriteStar(
                 filled: selected,
-                size: 16,
+                size: 14,
                 color: selected ? AppColors.sun : AppColors.leaf,
               ),
             ),

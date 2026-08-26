@@ -10,13 +10,13 @@ import xlrd
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-XLS = ROOT / "базазнаний20260824" / "База знаний 20260824.xls"
-IMG_SRC = ROOT / "базазнаний20260824" / "images"
+XLS = ROOT / "базазнаний20260826" / "База знаний 20260826.xls"
+IMG_SRC = ROOT / "базазнаний20260826" / "images"
 OUT_DART = ROOT / "apps" / "microgreens" / "lib" / "data" / "plants_data.dart"
 OUT_ASSETS = ROOT / "apps" / "microgreens" / "assets" / "plants"
 
-# Preserve old IDs where culture matches Excel name.
-OLD_ID_BY_NAME = {
+# Legacy slug ids → Excel numeric ids (existing garden trays keep working).
+LEGACY_ID_BY_NAME = {
     "Амарант": "amaranth",
     "Базилик": "basil_mg",
     "Бораго": "borage",
@@ -61,10 +61,11 @@ EMOJI = {
     "Пак-чой": "🥬",
     "Перилла/шисо": "🌿",
     "Подсолнечник": "🌻",
-    "Редис": "assets/icons/radish.png",
+    "Редис": "🌱",
     "Редька": "🌱",
     "Репа": "🌱",
     "Рукола": "🥬",
+    "Салат": "🥬",
     "Свекла": "🩸",
     "Тат-сой": "🥬",
     "Шпинат": "🥬",
@@ -76,6 +77,15 @@ def dart_str(s: str) -> str:
     s = (s or "").strip().replace("\r\n", "\n").replace("\r", "\n")
     s = s.replace("\\", "\\\\").replace("'", "\\'")
     return "'" + s + "'"
+
+
+def cell(row: list, headers: list[str], *names: str, default=""):
+    for name in names:
+        try:
+            return row[headers.index(name)]
+        except ValueError:
+            continue
+    return default
 
 
 def parse_range(val):
@@ -142,7 +152,7 @@ def tags_from(val):
     out = []
     for p in parts:
         t = p.strip().lower()
-        if t and t not in out:
+        if t and t != "польза" and t not in out:
             out.append(t)
     return out
 
@@ -155,6 +165,18 @@ def fmt_num(v):
     return str(v)
 
 
+def format_temperature(val) -> str:
+    s = str(val or "").strip()
+    if not s:
+        return "18–22 °C"
+    s = s.replace(",", ".").replace("–", "-").replace("—", "-")
+    s = re.sub(r"\s+", "", s)
+    s = s.replace("-", "–")
+    if "°" not in s and "C" not in s.upper():
+        s = f"{s} °C"
+    return s
+
+
 def resize_save(src: Path, dest: Path, max_w: int, max_h: int, quality=82):
     im = Image.open(src).convert("RGB")
     im.thumbnail((max_w, max_h), Image.Resampling.LANCZOS)
@@ -162,58 +184,90 @@ def resize_save(src: Path, dest: Path, max_w: int, max_h: int, quality=82):
     im.save(dest, "JPEG", quality=quality, optimize=True)
 
 
+def find_source(prefix: str, n: int) -> Path | None:
+    for folder in (IMG_SRC, OUT_ASSETS):
+        for ext in (".png", ".jpg", ".jpeg", ".PNG", ".JPG"):
+            cand = folder / f"{prefix}{n}{ext}"
+            if cand.exists():
+                return cand
+    return None
+
+
+def collect_plant_images(prefix: str) -> list[str]:
+    """Copy/compress prefix1, prefix2, … into assets/plants as JPEG."""
+    images: list[str] = []
+    for n in range(1, 21):
+        dest = OUT_ASSETS / f"{prefix}{n}.jpg"
+        if dest.exists() and dest.stat().st_size > 0:
+            images.append(f"assets/plants/{prefix}{n}.jpg")
+            continue
+        src = find_source(prefix, n)
+        if src is None:
+            break
+        if src.resolve() == dest.resolve():
+            images.append(f"assets/plants/{prefix}{n}.jpg")
+            continue
+        # Phone/tablet: 900px covers ~3x phone and ~2x tablet for card width.
+        resize_save(src, dest, 900, 900)
+        if src.suffix.lower() == ".png" and src.parent == OUT_ASSETS:
+            src.unlink(missing_ok=True)
+        images.append(f"assets/plants/{prefix}{n}.jpg")
+    return images
+
+
 def main() -> None:
     OUT_ASSETS.mkdir(parents=True, exist_ok=True)
     wb = xlrd.open_workbook(str(XLS))
     sh = wb.sheet_by_index(0)
-    headers = [sh.cell_value(0, c) for c in range(sh.ncols)]
+    headers = [str(sh.cell_value(0, c)).strip() for c in range(sh.ncols)]
 
     plants = []
+    aliases: dict[str, str] = {}
     copied = []
     for r in range(1, sh.nrows):
-        row = {headers[c]: sh.cell_value(r, c) for c in range(sh.ncols)}
-        name = str(row["Название"]).strip()
-        excel_id = int(row["id"])
-        prefix = str(row["Префикс для фото"]).strip()
-        plant_id = OLD_ID_BY_NAME.get(name, str(excel_id))
+        row = [sh.cell_value(r, c) for c in range(sh.ncols)]
+        name = str(cell(row, headers, "Название")).strip()
+        if not name:
+            continue
+        excel_id = str(int(float(cell(row, headers, "id"))))
+        prefix = str(cell(row, headers, "Префикс для фото")).strip()
+        plant_id = excel_id
+        legacy = LEGACY_ID_BY_NAME.get(name)
+        if legacy and legacy != plant_id:
+            aliases[legacy] = plant_id
 
-        src1 = IMG_SRC / f"{prefix}1.jpg"
-        src2 = IMG_SRC / f"{prefix}2.jpg"
-        list_image = None
-        card_image = None
-        if src1.exists():
-            dest1 = OUT_ASSETS / f"{prefix}1.jpg"
-            resize_save(src1, dest1, 640, 360)
-            list_image = f"assets/plants/{prefix}1.jpg"
-            copied.append(dest1.name)
-            if src2.exists():
-                dest2 = OUT_ASSETS / f"{prefix}2.jpg"
-                resize_save(src2, dest2, 720, 960)
-                card_image = f"assets/plants/{prefix}2.jpg"
-                copied.append(dest2.name)
-            # Only photo1: card shows a single image (no duplicate carousel slide).
-        elif src2.exists():
-            dest2 = OUT_ASSETS / f"{prefix}2.jpg"
-            resize_save(src2, dest2, 720, 960)
-            list_image = f"assets/plants/{prefix}2.jpg"
-            card_image = list_image
-            copied.append(dest2.name)
+        images = collect_plant_images(prefix)
+        copied.extend(Path(p).name for p in images)
 
-        seed = parse_range(row.get("Вес семян на лоток 13*18 см"))
-        soak_min, soak_max = hours_from_soak(row.get("Замачивание, ч"))
-        g_min, g_max = days_to_hours(row.get("Проращивание, дней"))
-        grow_min, grow_max = days_range(row.get("Рост, дней"))
-        press_kind, pmin, pmax = parse_press(row.get("Прижим, кг"))
+        seed = parse_range(
+            cell(
+                row,
+                headers,
+                "Вес семян на лоток 19*11 или 18*13 см",
+                "Семена вес на лоток 13см*18см",
+                "Вес семян на лоток 13*18 см",
+            )
+        )
+        if seed is None:
+            raise ValueError(f"{name}: missing seed weight")
 
-        tags = tags_from(row.get("Для фильтров"))
-        desc = str(row.get("Описание") or "").strip()
-        benefit = str(row.get("Польза") or "").strip() or None
-        taste = str(row.get("Вкус") or "").strip() or None
-        feature = str(row.get("Особенности выращивания") or "").strip() or None
-        tray = str(row.get("Лоток") or "").strip() or None
-        soil = str(row.get("Субстрат") or "").strip() or "Кокос"
-        light = str(row.get("Свет") or "").strip() or "Стандартный свет"
-        storage = str(row.get("Хранение") or "").strip() or None
+        soak_min, soak_max = hours_from_soak(cell(row, headers, "Замачивание, ч"))
+        g_min, g_max = days_to_hours(cell(row, headers, "Проращивание, дней"))
+        grow_min, grow_max = days_range(cell(row, headers, "Рост, дней"))
+        press_kind, pmin, pmax = parse_press(cell(row, headers, "Прижим, кг"))
+
+        tags = tags_from(cell(row, headers, "Для фильтров"))
+        desc = str(cell(row, headers, "Описание") or "").strip()
+        benefit = str(cell(row, headers, "Польза") or "").strip() or None
+        taste = str(cell(row, headers, "Вкус") or "").strip() or None
+        feature = (
+            str(cell(row, headers, "Особенности выращивания") or "").strip() or None
+        )
+        tray = str(cell(row, headers, "Лоток") or "").strip() or None
+        soil = str(cell(row, headers, "Субстрат") or "").strip() or "Кокос"
+        light = str(cell(row, headers, "Свет") or "").strip() or "Стандартный свет"
+        storage = str(cell(row, headers, "Хранение") or "").strip() or None
+        temperature = format_temperature(cell(row, headers, "Температура"))
 
         tips = []
         if soak_min is None:
@@ -259,8 +313,7 @@ def main() -> None:
                 "name": name,
                 "description": desc,
                 "icon": EMOJI.get(name, "🌱"),
-                "list_image": list_image,
-                "card_image": card_image,
+                "images": images,
                 "seed_min": seed[0],
                 "seed_max": seed[1],
                 "soak_min": soak_min,
@@ -273,6 +326,7 @@ def main() -> None:
                 "grow_min": grow_min,
                 "grow_max": grow_max,
                 "light": light,
+                "temperature": temperature,
                 "soil": soil,
                 "tips": tips,
                 "tags": tags,
@@ -295,11 +349,20 @@ def main() -> None:
         "  'быстрый',",
         "  'яркий вкус',",
         "  'эффектный',",
-        "  'польза',",
         "];",
         "",
-        "final plantsCatalog = <Plant>[",
+        "/// Old slug ids → Excel numeric ids (saved garden trays).",
+        "const _plantIdAliases = <String, String>{",
     ]
+    for legacy, numeric in sorted(aliases.items(), key=lambda x: x[1]):
+        lines.append(f"  {dart_str(legacy)}: {dart_str(numeric)},")
+    lines.extend(
+        [
+            "};",
+            "",
+            "final plantsCatalog = <Plant>[",
+        ]
+    )
 
     for p in plants:
         lines.append("  Plant(")
@@ -307,10 +370,9 @@ def main() -> None:
         lines.append(f"    name: {dart_str(p['name'])},")
         lines.append(f"    description: {dart_str(p['description'])},")
         lines.append(f"    icon: {dart_str(p['icon'])},")
-        if p["list_image"]:
-            lines.append(f"    listImage: {dart_str(p['list_image'])},")
-        if p["card_image"]:
-            lines.append(f"    cardImage: {dart_str(p['card_image'])},")
+        if p["images"]:
+            imgs = ", ".join(dart_str(i) for i in p["images"])
+            lines.append(f"    images: [{imgs}],")
         lines.append(f"    seedGramsMin: {fmt_num(p['seed_min'])},")
         lines.append(f"    seedGramsMax: {fmt_num(p['seed_max'])},")
         if p["soak_min"] is not None:
@@ -328,7 +390,7 @@ def main() -> None:
             lines.append(f"    growDaysMin: {p['grow_min']},")
         lines.append(f"    growDays: {p['grow_max'] or 0},")
         lines.append(f"    light: {dart_str(p['light'])},")
-        lines.append("    temperature: '18–22 °C',")
+        lines.append(f"    temperature: {dart_str(p['temperature'])},")
         lines.append(f"    soil: {dart_str(p['soil'])},")
         lines.append("    tips: [")
         for t in p["tips"]:
@@ -356,8 +418,9 @@ def main() -> None:
             "];",
             "",
             "Plant? plantById(String id) {",
+            "  final resolved = _plantIdAliases[id] ?? id;",
             "  for (final plant in plantsCatalog) {",
-            "    if (plant.id == id) return plant;",
+            "    if (plant.id == resolved) return plant;",
             "  }",
             "  return null;",
             "}",
@@ -368,6 +431,7 @@ def main() -> None:
     OUT_DART.write_text("\n".join(lines), encoding="utf-8")
     print(f"Wrote {OUT_DART} with {len(plants)} plants")
     print("Images:", ", ".join(sorted(set(copied))))
+    print("Aliases:", aliases)
     for p in plants:
         print(f"  {p['id']}: {p['name']}")
 

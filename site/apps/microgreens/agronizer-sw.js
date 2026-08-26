@@ -5,11 +5,13 @@
  * Shell assets: stale-while-revalidate for offline open.
  * Update-critical files (index, pwa_update, version, bootstrap): network-first
  * so a waiting worker can offer the update dialog without a stale shell.
+ * Icons / plant images / Flutter assets: network-first + no-cache fetch so
+ * same-URL files refresh after an update (SWR + old shells caused stale media).
  * New builds wait for SKIP_WAITING before replacing the active worker.
  */
 'use strict';
 
-const CACHE = 'microgreens-shell-v14';
+const CACHE = 'microgreens-shell-v15';
 const PRECACHE = [
   './',
   './index.html',
@@ -19,11 +21,25 @@ const PRECACHE = [
   './icons/Icon-512.png',
 ];
 
+async function precacheShell() {
+  const cache = await caches.open(CACHE);
+  await Promise.all(
+    PRECACHE.map(async (path) => {
+      try {
+        // Bypass HTTP cache so install does not store a previous build's icons.
+        const res = await fetch(path, { cache: 'reload' });
+        if (res && res.ok) {
+          await cache.put(path, res.clone());
+        }
+      } catch (_) {}
+    }),
+  );
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
-      const cache = await caches.open(CACHE);
-      await cache.addAll(PRECACHE).catch(() => undefined);
+      await precacheShell();
       // First install: activate immediately. Updates wait for SKIP_WAITING.
       if (!self.registration.active) {
         await self.skipWaiting();
@@ -48,31 +64,23 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
       await self.clients.claim();
-      // Delay wiping old shell caches so the first paint after update can
-      // still fall back to previous assets if the network is slow.
-      setTimeout(() => {
-        caches.keys().then((keys) => {
-          for (const k of keys) {
-            if (k.startsWith('microgreens-shell-') && k !== CACHE) {
-              caches.delete(k);
-            }
-          }
-        });
-      }, 45000);
+      // Drop previous shells right away so post-update reloads do not keep
+      // serving same-URL icons/images from the old cache.
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((k) => k.startsWith('microgreens-shell-') && k !== CACHE)
+          .map((k) => caches.delete(k)),
+      );
     })(),
   );
 });
 
-async function matchShellCaches(req) {
+async function matchOldShellCaches(req) {
   const keys = await caches.keys();
-  // Prefer current CACHE, then any older microgreens shell.
   const ordered = keys
-    .filter((k) => k.startsWith('microgreens-shell-'))
-    .sort((a, b) => {
-      if (a === CACHE) return -1;
-      if (b === CACHE) return 1;
-      return b.localeCompare(a);
-    });
+    .filter((k) => k.startsWith('microgreens-shell-') && k !== CACHE)
+    .sort((a, b) => b.localeCompare(a));
   for (const k of ordered) {
     const hit = await caches.open(k).then((c) => c.match(req));
     if (hit) return hit;
@@ -82,10 +90,11 @@ async function matchShellCaches(req) {
 
 async function staleWhileRevalidate(req, { fallbackToIndex }) {
   const cache = await caches.open(CACHE);
-  const cached = (await cache.match(req)) || (await matchShellCaches(req));
-  const network = fetch(req)
+  // Only the current shell for the fast path — never prefer an older build.
+  const cached = await cache.match(req);
+  const network = fetch(req, { cache: 'no-cache' })
     .then((res) => {
-      if (res && res.ok && res.type === 'basic') {
+      if (res && res.ok && (res.type === 'basic' || res.type === 'cors')) {
         cache.put(req, res.clone()).catch(() => undefined);
       }
       return res;
@@ -94,10 +103,12 @@ async function staleWhileRevalidate(req, { fallbackToIndex }) {
   if (cached) return cached;
   const fresh = await network;
   if (fresh) return fresh;
+  const old = await matchOldShellCaches(req);
+  if (old) return old;
   if (fallbackToIndex) {
     const shell =
       (await cache.match('./index.html')) ||
-      (await matchShellCaches(new Request('./index.html')));
+      (await matchOldShellCaches(new Request('./index.html')));
     if (shell) return shell;
   }
   return Response.error();
@@ -105,10 +116,9 @@ async function staleWhileRevalidate(req, { fallbackToIndex }) {
 
 async function networkFirst(req, timeoutMs) {
   const cache = await caches.open(CACHE);
-  const cachedPromise = matchShellCaches(req);
   try {
     const fresh = await Promise.race([
-      fetch(req),
+      fetch(req, { cache: 'no-cache' }),
       new Promise((_, reject) => {
         setTimeout(() => reject(new Error('timeout')), timeoutMs);
       }),
@@ -118,9 +128,11 @@ async function networkFirst(req, timeoutMs) {
       return fresh;
     }
   } catch (_) {}
-  const fallback = await cachedPromise;
-  if (fallback) return fallback;
-  return fetch(req);
+  const local = await cache.match(req);
+  if (local) return local;
+  const old = await matchOldShellCaches(req);
+  if (old) return old;
+  return fetch(req, { cache: 'no-cache' });
 }
 
 function isNetworkCritical(url, isDoc) {
@@ -134,6 +146,16 @@ function isNetworkCritical(url, isDoc) {
     path.endsWith('/index.html') ||
     /\/main\.dart\.js$/i.test(path)
   );
+}
+
+/** Same URL across builds — must not stay on stale-while-revalidate. */
+function isMutableStatic(url) {
+  const path = url.pathname;
+  if (path.includes('/icons/')) return true;
+  if (path.endsWith('/favicon.png') || path.endsWith('/favicon.ico')) return true;
+  if (path.endsWith('/manifest.json')) return true;
+  if (path.includes('/assets/')) return true;
+  return /\.(png|jpe?g|webp|gif|svg|ico|bin)$/i.test(path);
 }
 
 self.addEventListener('fetch', (event) => {
@@ -152,8 +174,8 @@ self.addEventListener('fetch', (event) => {
     req.mode === 'navigate' ||
     (req.headers.get('accept') || '').includes('text/html');
 
-  if (isNetworkCritical(url, isDoc)) {
-    event.respondWith(networkFirst(req, 4000));
+  if (isNetworkCritical(url, isDoc) || isMutableStatic(url)) {
+    event.respondWith(networkFirst(req, 5000));
     return;
   }
 

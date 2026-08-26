@@ -194,7 +194,7 @@ class StageTimeline extends StatelessWidget {
         _StageInfo(
           title: 'Замачивание',
           detail: plant.soakLabel,
-          note: 'В воде, до суток',
+          note: '',
           glyph: StageGlyphKind.soak,
         ),
       if (plant.hasGerminateStage)
@@ -254,11 +254,13 @@ class StageTimeline extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                             ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        stages[i].note,
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
+                      if (stages[i].note.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          stages[i].note,
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -608,7 +610,7 @@ class _StartDateSheetState extends State<_StartDateSheet> {
               if (stages.length > 1) ...[
                 const SizedBox(height: 12),
                 Text(
-                  'Текущая стадия',
+                  'Стадия старта',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),
@@ -644,13 +646,6 @@ class _StartDateSheetState extends State<_StartDateSheet> {
                         onSelected: (_) => setState(() => _stage = stage),
                       ),
                   ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  plant.stageHint(_stage),
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.muted,
-                      ),
                 ),
               ],
               const SizedBox(height: 12),

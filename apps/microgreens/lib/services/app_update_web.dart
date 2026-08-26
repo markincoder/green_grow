@@ -14,6 +14,8 @@ void _showInstallingScreen() {
 /// True when a newer service worker is waiting for SKIP_WAITING.
 Future<bool> hasWaitingWebAppUpdateImpl() async {
   try {
+    final dismissed = web.window.sessionStorage.getItem('pwa_update_dismissed');
+    if (dismissed != null && dismissed.isNotEmpty) return false;
     final sw = web.window.navigator.serviceWorker;
     final registration = await sw.getRegistration().toDart;
     if (registration == null) return false;
@@ -26,13 +28,30 @@ Future<bool> hasWaitingWebAppUpdateImpl() async {
   }
 }
 
-/// True when the HTML PWA prompt already handled this update.
+/// True when the HTML PWA prompt already handled this update (shown or dismissed).
 bool htmlPwaUpdatePromptShownImpl() {
   try {
-    return web.window.sessionStorage.getItem('pwa_update_prompt_shown') == '1';
+    final storage = web.window.sessionStorage;
+    if (storage.getItem('pwa_update_prompt_shown') == '1') return true;
+    final dismissed = storage.getItem('pwa_update_dismissed');
+    return dismissed != null && dismissed.isNotEmpty;
   } catch (_) {
     return false;
   }
+}
+
+/// Remember that the user chose «Позже» for the waiting PWA update.
+void dismissWebAppUpdatePromptImpl() {
+  try {
+    final fn = web.window.getProperty('agronizerDismissPwaUpdate'.toJS);
+    if (fn != null && !fn.isUndefinedOrNull) {
+      (fn as JSFunction).callAsFunction();
+      return;
+    }
+  } catch (_) {}
+  try {
+    web.window.sessionStorage.setItem('pwa_update_prompt_shown', '1');
+  } catch (_) {}
 }
 
 /// Returns true if the page will reload to pick up the new PWA build.

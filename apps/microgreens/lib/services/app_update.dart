@@ -10,3 +10,6 @@ Future<bool> hasWaitingWebAppUpdate() => hasWaitingWebAppUpdateImpl();
 
 /// Whether the HTML overlay already offered the PWA update.
 bool htmlPwaUpdatePromptShown() => htmlPwaUpdatePromptShownImpl();
+
+/// User chose «Позже» — do not auto-apply or re-prompt this waiting build.
+void dismissWebAppUpdatePrompt() => dismissWebAppUpdatePromptImpl();

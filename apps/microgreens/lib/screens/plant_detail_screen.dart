@@ -68,19 +68,6 @@ class PlantDetailScreen extends StatelessWidget {
           backgroundColor: AppColors.canvas,
           appBar: AppBar(
             title: Text(plant.name),
-            actions: [
-              if (gp != null)
-                IconButton(
-                  tooltip: isFavorite
-                      ? 'Убрать из избранного'
-                      : 'В избранное',
-                  onPressed: () => favorites.toggle(plant.id),
-                  icon: FavoriteStar(
-                    filled: isFavorite,
-                    size: 20,
-                  ),
-                ),
-            ],
           ),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -238,9 +225,25 @@ class PlantDetailScreen extends StatelessWidget {
                 ),
                 if (plant.taste != null) ...[
                   const SizedBox(height: 12),
-                  Text(
-                    'Вкус: ${plant.taste}',
-                    style: Theme.of(context).textTheme.bodyLarge,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Padding(
+                        padding: EdgeInsets.only(top: 2),
+                        child: Icon(
+                          Icons.restaurant_rounded,
+                          size: 20,
+                          color: AppColors.forest,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          plant.taste!,
+                          style: Theme.of(context).textTheme.bodyLarge,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
                 if (plant.benefit != null) ...[
@@ -269,13 +272,22 @@ class PlantDetailScreen extends StatelessWidget {
                   _InfoChip(
                     icon: Icons.scale_outlined,
                     label: gp?.seedGrams != null
-                        ? '${gp!.seedGrams} г на лоток 13×18'
-                        : '${plant.seedGramsLabel} на лоток 13×18',
+                        ? '${gp!.seedGrams} г · Вес семян на лоток 19×11 или 18×13 см'
+                        : '${plant.seedGramsLabel} · Вес семян на лоток 19×11 или 18×13 см',
                   ),
                   if (plant.tray != null)
                     _InfoChip(
                       glyph: _ConditionGlyph.tray,
-                      label: 'Лоток: ${plant.tray}',
+                      label: plant.tray!,
+                    ),
+                  _InfoChip(
+                    glyph: _ConditionGlyph.mat,
+                    label: plant.soil,
+                  ),
+                  if (plant.feature != null)
+                    _InfoChip(
+                      icon: Icons.info_outline_rounded,
+                      label: plant.feature!,
                     ),
                   _InfoChip(
                     icon: Icons.wb_sunny_outlined,
@@ -285,19 +297,10 @@ class PlantDetailScreen extends StatelessWidget {
                     icon: Icons.thermostat,
                     label: plant.temperature,
                   ),
-                  _InfoChip(
-                    glyph: _ConditionGlyph.mat,
-                    label: plant.soil,
-                  ),
                   if (plant.storage != null)
                     _InfoChip(
                       glyph: _ConditionGlyph.jar,
                       label: plant.storage!,
-                    ),
-                  if (plant.feature != null)
-                    _InfoChip(
-                      icon: Icons.info_outline_rounded,
-                      label: plant.feature!,
                     ),
                 ],
               ),
@@ -466,6 +469,24 @@ class _PlantPhotoCarouselState extends State<_PlantPhotoCarousel> {
     super.dispose();
   }
 
+  void _openGallery(int initialIndex) {
+    Navigator.of(context).push(
+      PageRouteBuilder<void>(
+        opaque: false,
+        barrierColor: Colors.black.withValues(alpha: 0.92),
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return FadeTransition(
+            opacity: animation,
+            child: _PlantPhotoLightbox(
+              photos: widget.photos,
+              initialIndex: initialIndex,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final photos = widget.photos;
@@ -486,10 +507,17 @@ class _PlantPhotoCarouselState extends State<_PlantPhotoCarousel> {
                 itemBuilder: (context, i) {
                   return Padding(
                     padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                    child: Image.asset(
-                      photos[i],
-                      fit: BoxFit.contain,
-                      alignment: Alignment.center,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: () => _openGallery(i),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.asset(
+                          photos[i],
+                          fit: BoxFit.contain,
+                          alignment: Alignment.center,
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -521,6 +549,123 @@ class _PlantPhotoCarouselState extends State<_PlantPhotoCarousel> {
               const SizedBox(height: 8),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _PlantPhotoLightbox extends StatefulWidget {
+  const _PlantPhotoLightbox({
+    required this.photos,
+    required this.initialIndex,
+  });
+
+  final List<String> photos;
+  final int initialIndex;
+
+  @override
+  State<_PlantPhotoLightbox> createState() => _PlantPhotoLightboxState();
+}
+
+class _PlantPhotoLightboxState extends State<_PlantPhotoLightbox> {
+  late final PageController _controller =
+      PageController(initialPage: widget.initialIndex);
+  late int _index = widget.initialIndex;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _close() {
+    if (Navigator.of(context).canPop()) {
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final multi = widget.photos.length > 1;
+    final topPad = MediaQuery.paddingOf(context).top;
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _close,
+            child: const ColoredBox(color: Colors.transparent),
+          ),
+          PageView.builder(
+            controller: _controller,
+            itemCount: widget.photos.length,
+            onPageChanged: (i) => setState(() => _index = i),
+            itemBuilder: (context, i) {
+              return Center(
+                child: InteractiveViewer(
+                  minScale: 1,
+                  maxScale: 4,
+                  child: Image.asset(
+                    widget.photos[i],
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              );
+            },
+          ),
+          if (multi)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: MediaQuery.paddingOf(context).bottom + 20,
+              child: IgnorePointer(
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(widget.photos.length, (i) {
+                    final active = i == _index;
+                    return AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      width: active ? 16 : 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: active
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          // Above PageView so the close control always receives taps.
+          Positioned(
+            top: topPad + 12,
+            right: 12,
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.55),
+              shape: const CircleBorder(),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: _close,
+                customBorder: const CircleBorder(),
+                child: const SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Icon(
+                    Icons.close_rounded,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -21,8 +21,25 @@ class AppVersion implements Comparable<AppVersion> {
 
   static Future<AppVersion> fromPlatform() async {
     final info = await PackageInfo.fromPlatform();
-    return tryParse(info.version, info.buildNumber) ??
-        const AppVersion('0.0.0');
+    final parsed = tryParse(info.version, info.buildNumber);
+    if (parsed == null) return const AppVersion('0.0.0');
+    // `flutter build apk --split-per-abi` rewrites Android versionCode, so
+    // PackageInfo.buildNumber is not the pubspec `+build` (e.g. 2012 / 12002).
+    return AppVersion(parsed.name, normalizeSplitPerAbiBuild(parsed.build));
+  }
+
+  /// Undo Flutter ABI versionCode encoding so we can compare with `version.json`.
+  ///
+  /// Old scheme: `abi * 1000 + build` (arm64 → 2xxx).
+  /// New scheme: `build * 1000 + abi` (arm64 → xxx002).
+  static int normalizeSplitPerAbiBuild(int code) {
+    if (code < 1000) return code;
+    const abiTags = {1, 2, 4};
+    final mod = code % 1000;
+    final div = code ~/ 1000;
+    if (abiTags.contains(mod)) return div;
+    if (abiTags.contains(div)) return mod;
+    return code;
   }
 
   bool isNewerThan(AppVersion other) => compareTo(other) > 0;

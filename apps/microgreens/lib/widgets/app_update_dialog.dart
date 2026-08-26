@@ -14,7 +14,10 @@ Future<void> showAppUpdateDialog(BuildContext context, AccessStore access) {
       content: Text(_message(access, auto: kIsWeb)),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(ctx),
+          onPressed: () {
+            if (kIsWeb) dismissWebAppUpdatePrompt();
+            Navigator.pop(ctx);
+          },
           child: const Text('Позже'),
         ),
         FilledButton(

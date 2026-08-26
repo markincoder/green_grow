@@ -18,8 +18,7 @@ class Plant {
     required this.name,
     required this.description,
     required this.icon,
-    this.listImage,
-    this.cardImage,
+    this.images = const [],
     required this.seedGramsMin,
     required this.seedGramsMax,
     this.soakHoursMin,
@@ -50,13 +49,10 @@ class Plant {
   /// Emoji fallback (unused for photos; prefer [defaultPhoto]).
   final String icon;
 
-  /// Photo for catalog list (`…1.jpg`). Null → [defaultPhoto].
-  final String? listImage;
+  /// Culture photos (`…1.jpg`, `…2.jpg`, …). First is the list avatar.
+  final List<String> images;
 
-  /// Extra photo for culture card (`…2.jpg`). Null → only [listImage] / default.
-  final String? cardImage;
-
-  /// Seed weight range for a 13×18 tray, grams.
+  /// Seed weight range for a 19×11 / 18×13 tray, grams.
   final double seedGramsMin;
   final double seedGramsMax;
 
@@ -92,7 +88,7 @@ class Plant {
   /// Extra note from the cultivation table.
   final String? feature;
 
-  /// Fallback photo when culture has no `…1` / `…2` assets.
+  /// Fallback photo when culture has no numbered assets.
   static const defaultPhoto = 'assets/plants/default1.jpg';
 
   /// Default seed grams when starting a tray (upper bound, rounded).
@@ -109,16 +105,11 @@ class Plant {
   }
 
   /// Avatar for list / garden tiles.
-  String get listAvatar => listImage ?? defaultPhoto;
+  String get listAvatar => images.isNotEmpty ? images.first : defaultPhoto;
 
-  /// Photos for the culture detail card (1, or 1+2 carousel). Never empty.
-  List<String> get cardPhotos {
-    final photos = <String>[];
-    if (listImage != null) photos.add(listImage!);
-    if (cardImage != null && cardImage != listImage) photos.add(cardImage!);
-    if (photos.isEmpty) return const [defaultPhoto];
-    return photos;
-  }
+  /// Photos for the culture detail carousel. Never empty.
+  List<String> get cardPhotos =>
+      images.isNotEmpty ? images : const [defaultPhoto];
 
   bool get needsSoak => soakHoursMin != null;
 
@@ -278,17 +269,6 @@ class Plant {
         GrowthStage.germinate => germinateLabel,
         GrowthStage.grow => growLabel,
         GrowthStage.harvest => 'Готово',
-      };
-
-  String stageHint(GrowthStage stage) => switch (stage) {
-        GrowthStage.soak => 'Семена ещё в воде',
-        GrowthStage.germinate => switch (pressKind) {
-            PressKind.none => 'В темноте',
-            PressKind.upperTray => 'В темноте, прижим верхним лотком',
-            PressKind.weight => 'В темноте, с прижимом',
-          },
-        GrowthStage.grow => 'Уже на свету',
-        GrowthStage.harvest => 'Пора срезать',
       };
 
   static String _kg(double v) =>
@@ -516,12 +496,16 @@ class GardenPlant {
   }
 
   /// Status under the title:
-  /// `Прошло 4ч - посеять сегодня с 16:00` /
-  /// `посеять` when the sow time is already past /
+  /// `Замачивается. Посеять` /
+  /// `Замачивается. Прошло 4ч - посеять сегодня с 16:00` /
   /// `Прорастает. На свет 16 авг` /
   /// `Растет. Собрать 15 авг. Проверить воду`
   String statusLine(Plant plant, DateTime now) {
-    if (stage == GrowthStage.soak) return soakActionLabel(plant, now);
+    if (stage == GrowthStage.soak) {
+      final action = soakActionLabel(plant, now);
+      if (action == 'посеять') return 'Замачивается. Посеять';
+      return 'Замачивается. $action';
+    }
     final verb = stageVerb(plant, now);
     if (stage == GrowthStage.harvest) return verb;
 

@@ -114,17 +114,92 @@ class GardenStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Apply a home-screen reminder action to garden state.
-  Future<void> completeReminderAction({
+  /// Apply a home-screen reminder action. Returns a snapshot for undo.
+  Future<ReminderUndo?> completeReminderAction({
     required DueActionKind? kind,
     String? gardenId,
   }) async {
     if (kind == null || kind == DueActionKind.water) {
+      final before = <String, DateTime>{};
+      for (final garden in _plants) {
+        if (garden.stage != GrowthStage.grow) continue;
+        before[garden.id] = garden.lastWateredAt;
+      }
       await waterGrowingPlants();
-      return;
+      if (before.isEmpty) return null;
+      return ReminderUndo.water(before);
     }
-    if (gardenId == null) return;
-    await advancePlant(gardenId);
+    if (gardenId == null) return null;
+
+    final index = _plants.indexWhere((p) => p.id == gardenId);
+    if (index < 0) return null;
+    final garden = _plants[index];
+    final plant = plantById(garden.plantId);
+    if (plant == null) return null;
+
+    if (garden.completesNext(plant)) {
+      final snapshot = GardenPlant.fromJson(garden.toJson());
+      await harvestPlant(gardenId);
+      return ReminderUndo.harvest(snapshot, index);
+    }
+
+    final previousStage = garden.stage;
+    final previousStageChangedAt = garden.stageChangedAt;
+    final action = garden.nextActionLabel(plant).toLowerCase();
+    garden.advanceStage(plant);
+    await PlantingLogService.instance.append(
+      cycleName: garden.titleWithDate(plant),
+      action: action,
+      stageOrComment: PlantingLogService.stageField(garden.stage),
+    );
+    await _persist();
+    notifyListeners();
+    return ReminderUndo.stage(
+      kind: kind,
+      gardenId: gardenId,
+      previousStage: previousStage,
+      previousStageChangedAt: previousStageChangedAt,
+    );
+  }
+
+  Future<void> undoReminderAction(ReminderUndo undo) async {
+    switch (undo.kind) {
+      case DueActionKind.water:
+        final before = undo.wateredBefore;
+        if (before == null || before.isEmpty) return;
+        var changed = false;
+        for (final garden in _plants) {
+          final prev = before[garden.id];
+          if (prev == null) continue;
+          garden.lastWateredAt = prev;
+          changed = true;
+        }
+        if (!changed) return;
+        await _persist();
+        notifyListeners();
+        return;
+      case DueActionKind.harvest:
+        final plant = undo.restoredPlant;
+        if (plant == null) return;
+        final index = (undo.insertIndex ?? 0).clamp(0, _plants.length);
+        _plants.insert(index, plant);
+        await _persist();
+        notifyListeners();
+        return;
+      case DueActionKind.sow:
+      case DueActionKind.toLight:
+        final id = undo.gardenId;
+        final stage = undo.previousStage;
+        final changedAt = undo.previousStageChangedAt;
+        if (id == null || stage == null || changedAt == null) return;
+        final index = _plants.indexWhere((p) => p.id == id);
+        if (index < 0) return;
+        _plants[index].stage = stage;
+        _plants[index].stageChangedAt = changedAt;
+        await _persist();
+        notifyListeners();
+        return;
+    }
   }
 
   /// Advance to the next process step, or remove when collecting.
@@ -176,4 +251,50 @@ class GardenStore extends ChangeNotifier {
     await _persist();
     notifyListeners();
   }
+}
+
+/// Snapshot of garden state before a home-reminder action, for snackbar undo.
+class ReminderUndo {
+  ReminderUndo._({
+    required this.kind,
+    this.gardenId,
+    this.wateredBefore,
+    this.restoredPlant,
+    this.insertIndex,
+    this.previousStage,
+    this.previousStageChangedAt,
+  });
+
+  factory ReminderUndo.water(Map<String, DateTime> wateredBefore) =>
+      ReminderUndo._(
+        kind: DueActionKind.water,
+        wateredBefore: wateredBefore,
+      );
+
+  factory ReminderUndo.harvest(GardenPlant plant, int index) => ReminderUndo._(
+        kind: DueActionKind.harvest,
+        restoredPlant: plant,
+        insertIndex: index,
+      );
+
+  factory ReminderUndo.stage({
+    required DueActionKind kind,
+    required String gardenId,
+    required GrowthStage previousStage,
+    required DateTime previousStageChangedAt,
+  }) =>
+      ReminderUndo._(
+        kind: kind,
+        gardenId: gardenId,
+        previousStage: previousStage,
+        previousStageChangedAt: previousStageChangedAt,
+      );
+
+  final DueActionKind kind;
+  final String? gardenId;
+  final Map<String, DateTime>? wateredBefore;
+  final GardenPlant? restoredPlant;
+  final int? insertIndex;
+  final GrowthStage? previousStage;
+  final DateTime? previousStageChangedAt;
 }

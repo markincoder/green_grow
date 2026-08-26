@@ -62,11 +62,39 @@ class _HomeScreenState extends State<HomeScreen> {
       if (item.kind == DueActionKind.harvest) {
         _showCelebrate();
       }
-      await widget.store.completeReminderAction(
+      final undo = await widget.store.completeReminderAction(
         kind: item.kind,
         gardenId: item.gardenId,
       );
       await widget.settings.dismissReminder(item.key);
+      if (!mounted) return;
+
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      final controller = messenger.showSnackBar(
+        SnackBar(
+          content: Text(item.title),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          dismissDirection: DismissDirection.down,
+          action: SnackBarAction(
+            label: 'Отменить',
+            onPressed: () async {
+              await widget.settings.restoreReminder(item.key);
+              if (undo != null) {
+                await widget.store.undoReminderAction(undo);
+              }
+            },
+          ),
+        ),
+      );
+      // Accessibility / some platforms ignore SnackBar.duration when an
+      // action is present — force close after 3s.
+      async.unawaited(
+        Future<void>.delayed(const Duration(seconds: 3), () {
+          controller.close();
+        }),
+      );
     } catch (e, st) {
       if (!mounted) return;
       debugPrint('HomeScreen: mark reminder failed: $e\n$st');
