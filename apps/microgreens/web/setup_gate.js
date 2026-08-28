@@ -795,6 +795,37 @@
     return 'ещё не выбраны';
   }
 
+  function confirmStepLead() {
+    return (
+      'Статус уведомлений от agronizer.ru: ' +
+      sitePermLabel() +
+      '\n\nСейчас отправим тестовое уведомление от приложения Микрозелень.\n\n' +
+      'Если увидели - нажмите Вижу уведомление.\n' +
+      'Если не сработало, нажмите Повторить тест.\n' +
+      'Если пара повторов не помогла - пожалуйтесь на agronizer@yandex.ru, ' +
+      'пришлем дополнительную инструкцию по настройке браузера. ' +
+      'А пока можно нажать Пропустить - напоминаний не будет'
+    );
+  }
+
+  function iconStepLeadChromeAfterNotify() {
+    return (
+      'Дождитесь сообщения: Уведомления настроены. Теперь можно установить приложение.\n\n' +
+      'Нажмите Установить в Chrome\n' +
+      'Если иконка уже есть - вы запустили повторную установку или оказались здесь случайно :), нажмите Пропустить\n' +
+      'Если настроить уведомления в Chrome не получилось, а напоминания нужны, нажмите Скачать APK для установки обычного Android-приложения'
+    );
+  }
+
+  function iconStepLeadYandexAfterNotify() {
+    return (
+      'Дождитесь сообщения: Уведомления настроены. Теперь можно установить приложение.\n\n' +
+      'Нажмите (три точки - меню О сайте) и выберите пункт Добавить ярлык на рабочий стол, затем нажмите Готово\n' +
+      'Если иконка уже есть - вы запустили повторную установку или оказались здесь случайно :), нажмите Готово\n' +
+      'Если настроить уведомления в браузере не получилось, а напоминания нужны, нажмите Скачать APK для установки обычного Android-приложения'
+    );
+  }
+
   /** Short how-to for Android site notifications (status lines). */
   function androidSiteNotifyShortHint() {
     if (isYandex()) {
@@ -1022,7 +1053,7 @@
 
     if (step === 'icon') {
       title.textContent = notifyBeforeIcon()
-        ? '2. Установка иконки (после уведомлений)'
+        ? '3. Создание иконки приложения'
         : '1. Установка PWA: иконка на «Домой»';
       if (isIos()) {
         lead.textContent =
@@ -1044,20 +1075,34 @@
           'bad',
         );
       } else if (isYandex()) {
-        lead.textContent =
-          'В Яндекс.Браузере добавьте ярлык на рабочий стол. После этого открывайте Микрозелень с ярлыка — настройка больше не понадобится.';
-        steps.innerHTML =
-          '<li>Нажмите <b>≡</b> (меню) внизу или справа</li>' +
-          '<li><b>«Добавить на рабочий стол»</b> / <b>«Добавить ярлык»</b> / <b>«Установить»</b></li>' +
-          '<li>Имя — <b>«Микрозелень»</b></li>' +
-          '<li>Откройте с ярлыка — сразу приложение (без повторной настройки)</li>' +
-          '<li>Или нажмите «Далее» здесь, если ярлык уже есть</li>';
-        btnPrimary.hidden = false;
-        btnPrimary.textContent = notifyBeforeIcon() ? 'Далее — готово' : 'Далее — к уведомлениям';
-        btnSecondary.hidden = true;
-        btnSkip.hidden = false;
-        btnSkip.textContent = 'Пропустить — ярлык уже есть';
-        setStatus('');
+        if (notifyBeforeIcon()) {
+          title.textContent = '3. Установка и создание иконки приложения';
+          lead.textContent = iconStepLeadYandexAfterNotify();
+          steps.hidden = true;
+          steps.innerHTML = '';
+          btnPrimary.hidden = false;
+          btnPrimary.textContent = 'Готово';
+          btnSecondary.hidden = true;
+          btnSkip.hidden = false;
+          btnSkip.textContent = 'Скачать APK';
+          setStatus('');
+        } else {
+          lead.textContent =
+            'В Яндекс.Браузере добавьте ярлык на рабочий стол. После этого открывайте Микрозелень с ярлыка — настройка больше не понадобится.';
+          steps.hidden = false;
+          steps.innerHTML =
+            '<li>Нажмите <b>≡</b> (меню) внизу или справа</li>' +
+            '<li><b>«Добавить на рабочий стол»</b> / <b>«Добавить ярлык»</b> / <b>«Установить»</b></li>' +
+            '<li>Имя — <b>«Микрозелень»</b></li>' +
+            '<li>Откройте с ярлыка — сразу приложение (без повторной настройки)</li>' +
+            '<li>Или нажмите «Далее» здесь, если ярлык уже есть</li>';
+          btnPrimary.hidden = false;
+          btnPrimary.textContent = 'Далее — к уведомлениям';
+          btnSecondary.hidden = true;
+          btnSkip.hidden = false;
+          btnSkip.textContent = 'Пропустить — ярлык уже есть';
+          setStatus('');
+        }
       } else if (isAndroidWebApk()) {
         title.textContent = 'PWA уже установлено';
         lead.textContent =
@@ -1072,45 +1117,52 @@
         btnSkip.hidden = true;
         setStatus('Иконка есть — осталось проверить уведомления.', 'ok');
       } else if (isChromeAndroid()) {
-        lead.textContent = notifyBeforeIcon()
-          ? 'Уведомления сайта уже настроены во вкладке. Теперь можно установить приложение — после Install пункты уведомлений сайта в Chrome пропадут.'
-          : 'Один мастер: сначала установка в Chrome, затем уведомления. Нужен Install, не обычный ярлык.';
-        steps.innerHTML = notifyBeforeIcon()
-          ? '<li>Дождитесь статуса: Service Worker готов</li>' +
-            '<li>Нажмите <b>«Установить в Chrome»</b> (или ⋮ → Установить приложение)</li>' +
-            '<li>Откройте <b>новую</b> иконку</li>' +
-            '<li>«Далее» — завершение настройки</li>'
-          : '<li>Если раньше ставили — Настройки Android → Приложения → <b>«Микрозелень»</b> → Удалить</li>' +
+        if (notifyBeforeIcon()) {
+          title.textContent = '3. Создание иконки приложения';
+          lead.textContent = iconStepLeadChromeAfterNotify();
+          steps.hidden = true;
+          steps.innerHTML = '';
+          btnPrimary.hidden = false;
+          btnPrimary.textContent = deferredInstallPrompt
+            ? 'Создать иконку Микрозелень'
+            : 'Далее — готово';
+          btnSecondary.hidden = !deferredInstallPrompt;
+          btnSecondary.textContent = 'Пропустить';
+          btnSkip.hidden = false;
+          btnSkip.textContent = 'Скачать APK';
+          if (!swReadyForInstall) {
+            setStatus('Готовим Service Worker для Chrome… подождите 2–3 сек.', 'ok');
+          } else {
+            setStatus('');
+          }
+        } else {
+          lead.textContent =
+            'Один мастер: сначала установка в Chrome, затем уведомления. Нужен Install, не обычный ярлык.';
+          steps.hidden = false;
+          steps.innerHTML =
+            '<li>Если раньше ставили — Настройки Android → Приложения → <b>«Микрозелень»</b> → Удалить</li>' +
             '<li>Дождитесь статуса: Service Worker готов</li>' +
             '<li>Нажмите <b>«Установить в Chrome»</b> (или ⋮ → Установить приложение)</li>' +
             '<li>Откройте <b>новую</b> иконку, вернитесь сюда</li>' +
             '<li>«Далее» — настройка уведомлений и тест</li>';
-        btnPrimary.hidden = false;
-        btnPrimary.textContent = deferredInstallPrompt
-          ? 'Установить в Chrome'
-          : notifyBeforeIcon()
-            ? 'Далее — готово'
+          btnPrimary.hidden = false;
+          btnPrimary.textContent = deferredInstallPrompt
+            ? 'Установить в Chrome'
             : 'Далее — к уведомлениям';
-        btnSecondary.hidden = !deferredInstallPrompt;
-        btnSecondary.textContent = notifyBeforeIcon()
-          ? 'Пропустить — иконка уже есть'
-          : 'Далее — иконка уже есть';
-        btnSkip.hidden = false;
-        btnSkip.textContent = 'Скачать APK вместо PWA';
-        if (!swReadyForInstall) {
-          setStatus('Готовим Service Worker для Chrome… подождите 2–3 сек.', 'ok');
-        } else if (deferredInstallPrompt) {
-          setStatus(
-            notifyBeforeIcon()
-              ? 'Уведомления готовы. Теперь установите PWA.'
-              : 'Chrome готов установить PWA. Нажмите «Установить в Chrome».',
-            'ok',
-          );
-        } else {
-          setStatus(
-            'SW готов. Если кнопки установки нет: ⋮ → «Установить приложение».',
-            'ok',
-          );
+          btnSecondary.hidden = !deferredInstallPrompt;
+          btnSecondary.textContent = 'Далее — иконка уже есть';
+          btnSkip.hidden = false;
+          btnSkip.textContent = 'Скачать APK вместо PWA';
+          if (!swReadyForInstall) {
+            setStatus('Готовим Service Worker для Chrome… подождите 2–3 сек.', 'ok');
+          } else if (deferredInstallPrompt) {
+            setStatus('Chrome готов установить PWA. Нажмите «Установить в Chrome».', 'ok');
+          } else {
+            setStatus(
+              'SW готов. Если кнопки установки нет: ⋮ → «Установить приложение».',
+              'ok',
+            );
+          }
         }
       } else if (isSamsungBrowser()) {
         lead.textContent =
@@ -1172,27 +1224,14 @@
 
     if (step === 'notify') {
       title.textContent = notifyBeforeIcon()
-        ? '1. Уведомления сайта agronizer.ru'
-        : '2. Уведомления сайта agronizer.ru';
-      if (isYandex()) {
-        lead.textContent =
-          'Сначала разрешение сайту agronizer.ru. Сейчас: ' +
-          sitePermLabel() +
-          '. Списка «Заблокированы» может не быть. Включайте на вкладке: ≡ → О сайте → Уведомления от этого сайта.';
-      } else {
-        lead.textContent = notifyBeforeIcon()
-          ? 'В Chrome сначала уведомления сайта, и только потом установка — иначе пункты уведомлений сайта пропадут.'
-          : 'Сначала разрешение именно сайту (не браузеру в целом). Сейчас для agronizer.ru: ' +
-            sitePermLabel() +
-            '.';
-        if (notifyBeforeIcon()) {
-          lead.textContent +=
-            ' Сейчас для agronizer.ru: ' + sitePermLabel() + '.';
-        }
-      }
+        ? '1. Разрешение уведомлений от сайта agronizer.ru'
+        : '2. Разрешение уведомлений от сайта agronizer.ru';
+      lead.textContent =
+        'Для получения напоминаний от приложения нужно разрешить браузеру отправку уведомлений от сайта';
 
       if (notifGranted()) {
         refreshPermOnReturn = false;
+        steps.hidden = false;
         steps.innerHTML =
           '<li>Сайту уже <b>разрешено</b> — это главный шаг</li>' +
           '<li>Нажмите «Проверить» — подписка и тестовое уведомление на экране</li>' +
@@ -1204,6 +1243,7 @@
         setStatus('Шаг 1 OK: сайту разрешено. Проверяем подписку и тест.', 'ok');
       } else if (notifDenied()) {
         refreshPermOnReturn = true;
+        steps.hidden = false;
         lead.textContent = siteNotifyDeniedLead();
         steps.innerHTML = isIos()
           ? iosSiteNotifyStepsHtml()
@@ -1216,24 +1256,10 @@
         setStatus(siteNotifyDeniedStatus(), 'bad');
       } else {
         refreshPermOnReturn = false;
-        if (isIos()) {
-          steps.innerHTML =
-            '<li>Нажмите «Разрешить уведомления сайту»</li>' +
-            '<li>В окне выберите <b>Разрешить</b></li>' +
-            '<li>Если окна нет или отказали: Настройки iPhone → Микрозелень → Уведомления</li>';
-        } else if (isYandex()) {
-          steps.innerHTML =
-            '<li>Нажмите «Разрешить уведомления сайту» — если окно есть, выберите <b>Разрешить</b></li>' +
-            '<li>Если окна нет и agronizer.ru нет в списках — это нормально</li>' +
-            '<li>≡ / ⋮ → <b>О сайте</b> → включите <b>Уведомления от этого сайта</b></li>' +
-            '<li>Нет «О сайте»: откройте agronizer.ru как вкладку (с адресной строкой), не с ярлыка</li>';
-        } else {
-          steps.innerHTML =
-            '<li>Нажмите «Разрешить уведомления сайту»</li>' +
-            '<li>В окне выберите <b>Разрешить</b> — это про agronizer.ru</li>' +
-            '<li>Если окна нет: меню <b>⋮</b> → <b>Настройки</b> / <b>Сведения о сайте</b> → <b>Уведомления</b> → Разрешить</li>' +
-            '<li>Сразу нажмите кнопку ещё раз на этой же странице</li>';
-        }
+        lead.textContent =
+          'Для получения напоминаний от приложения нужно разрешить браузеру отправку уведомлений от сайта';
+        steps.hidden = true;
+        steps.innerHTML = '';
         btnPrimary.hidden = false;
         btnPrimary.textContent = 'Разрешить уведомления сайту';
         btnSecondary.hidden = !isYandex();
@@ -1241,109 +1267,43 @@
           btnSecondary.textContent = 'Нет «О сайте» — открыть во вкладке';
         }
         btnEnter.hidden = true;
-        setStatus(
-          isIos()
-            ? 'Вы в приложении с иконки — нажмите «Разрешить уведомления сайту».'
-            : isYandex()
-              ? 'Яндекс: ≡ / ⋮ → О сайте → Уведомления от этого сайта. Списка Заблокированы может не быть.'
-              : 'Android: ⋮ → настройки сайта → Уведомления (замка нет).',
-        );
+        setStatus('');
       }
 
       btnSkip.hidden = false;
-      btnSkip.textContent = 'Пропустить — без Push';
+      btnSkip.textContent = 'Пропустить - напоминаний не будет';
       return;
     }
 
     if (step === 'confirm') {
-      title.textContent = '2. Тест уведомлений сайта';
-      var siteOk = notifGranted();
-      if (siteOk) {
-        lead.textContent =
-          'Сайту разрешено. Смотрите уведомление «Микрозелень — проверка». Если пусто — повторите тест сайта.';
-      } else if (isIos()) {
-        lead.textContent =
-          'Сайт ещё не разрешён. На iOS: иконка на «Домой» и Настройки → Микрозелень → Уведомления.';
-      } else {
-        lead.textContent =
-          'Сайт ещё не разрешён. ' +
-          androidSiteNotifyShortHint() +
-          ', затем «Повторить тест сайта» здесь же.';
-      }
-      var stepsHtml =
-        '<li>Статус сайта: <b>' +
-        sitePermLabel() +
-        '</b></li>' +
-        '<li>Увидели уведомление → «Вижу уведомление — готово»</li>' +
-        '<li>Не увидели → «Повторить тест сайта»</li>';
-      if (!siteOk) {
-        stepsHtml += isIos()
-          ? '<li><b>Сайт не разрешён</b> — иконка на «Домой» + Настройки iPhone → Микрозелень → Уведомления</li>'
-          : '<li><b>Сайт не разрешён</b> — ' +
-            androidSiteNotifyShortHint() +
-            ', затем снова тест на этой странице</li>';
-      } else if (confirmTestAttempts >= 2) {
-        stepsHtml +=
-          '<li>Сайт разрешён, тест 2+ раза пустой → тогда: Настройки Android → Приложения → «' +
-          browserAppLabel() +
-          '» → Уведомления</li>';
-      } else {
-        stepsHtml +=
-          '<li>Пока не открывайте Настройки → Приложения → браузер — сначала повторите тест сайта</li>';
-      }
-      steps.innerHTML = stepsHtml;
+      title.textContent = '2. Тест уведомлений от сайта';
+      lead.textContent = confirmStepLead();
+      steps.hidden = true;
+      steps.innerHTML = '';
       btnPrimary.hidden = false;
-      btnPrimary.textContent = 'Повторить тест сайта';
-      btnSecondary.hidden = !(isAndroid() && !isIos() && siteOk && confirmTestAttempts >= 2);
-      btnSecondary.textContent =
-        'Сайт OK, уведомления нет — настройки «' + browserAppLabel() + '»';
+      btnPrimary.textContent = 'Вижу уведомление';
+      btnSecondary.hidden = true;
       btnEnter.hidden = false;
-      btnEnter.textContent = 'Вижу уведомление — готово';
+      btnEnter.textContent = 'Повторить тест';
       btnSkip.hidden = false;
-      btnSkip.textContent = 'Пропустить — без Push';
-      if (!siteOk) {
-        setStatus(
-          isIos()
-            ? 'iOS: сначала разрешение с иконки / в Настройках.'
-            : androidSiteNotifyShortHint() + '.',
-          'bad',
-        );
-      } else if (confirmTestAttempts >= 2) {
-        setStatus(
-          'Сайт разрешён, уведомления нет после повторов — можно проверить «' +
-            browserAppLabel() +
-            '».',
-          'bad',
-        );
-      } else {
-        setStatus('Повторите тест сайта. Настройки браузера — только после 2 неудач.', 'ok');
-      }
+      btnSkip.textContent = 'Пропустить - напоминаний не будет';
+      setStatus('');
       return;
     }
     // ready
     title.textContent = 'Готово';
     if (notifGranted()) {
       lead.textContent =
-        'Уведомления настроены: разрешение есть, подписка и тест пройдены.';
-      if (isIos()) {
-        steps.innerHTML = isInstalledPwa()
-          ? '<li>Иконка на «Домой» есть — уведомления могут работать</li>' +
-            '<li>Уведомления включены и проверены</li>'
-          : '<li>Открывайте приложение <b>только с иконки на «Домой»</b></li>' +
-            '<li>Уведомления включены; без иконки на iOS они не дойдут</li>';
-      } else if (isInstalledPwa()) {
-        steps.innerHTML =
-          '<li>Приложение установлено (иконка на экране)</li>' +
-          '<li>Push включён — напоминания могут приходить в фоне</li>';
-      } else {
-        steps.innerHTML =
-          '<li>Push во вкладке настроен и проверен тестом</li>' +
-          '<li>Если иконки ещё нет — вернитесь по ссылке «Установить PWA» на портале</li>';
-      }
-      setStatus('PWA-настройка завершена. Можно открыть приложение.', 'ok');
+        'Установка завершена.\n\n' +
+        'Еще несколько секунд терпения: нужно дождаться сообщения, что приложение установлено, ' +
+        'и можно приступать к выращиванию. Удачных посевов!';
+      steps.hidden = true;
+      steps.innerHTML = '';
+      setStatus('');
     } else {
       lead.textContent =
         'Push пропущен. Напоминания в фоне работать не будут, пока не разрешите уведомления.';
+      steps.hidden = false;
       steps.innerHTML = isIos()
         ? '<li>На iOS сначала нужна иконка на «Домой»</li>' +
           '<li>Затем снова откройте установку PWA</li>'
@@ -1562,47 +1522,10 @@
       return;
     }
     if (step === 'confirm') {
-      // Primary = «Повторить тест сайта»
-      if (checkInFlight) return;
-      checkInFlight = true;
-      confirmTestAttempts += 1;
-      var retryBtn = el('primary');
-      if (retryBtn) retryBtn.disabled = true;
-      setStatus('Снова отправляем тест сайта…');
-      fireTestNotification()
-        .then(function () {
-          if (confirmTestAttempts >= 2 && notifGranted()) {
-            setStatus(
-              'Тест сайта отправлен снова (попытка ' +
-                confirmTestAttempts +
-                '). Если уведомления нет при разрешённом сайте — тогда настройки «' +
-                browserAppLabel() +
-                '».',
-              'bad',
-            );
-          } else {
-            setStatus(
-              'Тест сайта отправлен снова. Увидели → «Вижу уведомление». Нет → ещё раз «Повторить тест сайта».',
-            );
-          }
-          render();
-        })
-        .catch(function (err) {
-          setStatus(
-            'Тест сайта не отправился: ' +
-              ((err && err.message) || 'неизвестно') +
-              '. Сначала ' +
-              androidSiteNotifyShortHint() +
-              '.',
-            'bad',
-          );
-          render();
-        })
-        .finally(function () {
-          checkInFlight = false;
-          var b = el('primary');
-          if (b) b.disabled = false;
-        });
+      finishNotifyOk(
+        (lastTechOkMessage ? lastTechOkMessage + ' ' : '') +
+          'Пользователь подтвердил, что тестовое уведомление видно.',
+      );
       return;
     }
     if (step !== 'notify') return;
@@ -1785,7 +1708,12 @@
 
   function onSkip() {
     if (step === 'icon') {
-      if (isChromeAndroid()) {
+      var skipEl = el('skip');
+      var skipApk =
+        skipEl &&
+        !skipEl.hidden &&
+        skipEl.textContent.indexOf('APK') >= 0;
+      if (skipApk && (isChromeAndroid() || isYandex())) {
         reportDownload('apk');
         location.href = APP_PATH + 'microgreens.apk';
         return;
@@ -1824,10 +1752,23 @@
 
   function onEnter() {
     if (step === 'confirm') {
-      finishNotifyOk(
-        (lastTechOkMessage ? lastTechOkMessage + ' ' : '') +
-          'Пользователь подтвердил, что тестовое уведомление видно.',
-      );
+      if (checkInFlight) return;
+      checkInFlight = true;
+      confirmTestAttempts += 1;
+      var retryBtn = el('enter');
+      if (retryBtn) retryBtn.disabled = true;
+      fireTestNotification()
+        .then(function () {
+          render();
+        })
+        .catch(function () {
+          render();
+        })
+        .finally(function () {
+          checkInFlight = false;
+          var b = el('enter');
+          if (b) b.disabled = false;
+        });
       return;
     }
     if (notifGranted()) {
@@ -1867,7 +1808,7 @@
       '#agronizer-gate .ag-gate-card{width:100%;max-width:440px;background:#F3FAF5;color:#1A2E24;' +
       'border-radius:20px;padding:24px 20px 20px;box-shadow:0 12px 32px rgba(27,67,50,.18)}' +
       '#agronizer-gate h1{margin:0 0 10px;font-size:1.35rem;color:#1B4332}' +
-      '#agronizer-gate .ag-gate-lead{margin:0 0 14px;font-size:.98rem;line-height:1.45;color:#5C7268}' +
+      '#agronizer-gate .ag-gate-lead{margin:0 0 14px;font-size:.98rem;line-height:1.45;color:#5C7268;white-space:pre-line}' +
       '#agronizer-gate .ag-gate-steps{margin:0 0 16px;padding-left:1.2rem;font-size:.94rem;line-height:1.45}' +
       '#agronizer-gate .ag-gate-steps li{margin:0 0 8px}' +
       '#agronizer-gate .ag-gate-status{margin:0 0 14px;padding:10px 12px;border-radius:12px;' +
