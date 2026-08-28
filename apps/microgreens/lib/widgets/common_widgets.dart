@@ -610,7 +610,7 @@ class _StartDateSheetState extends State<_StartDateSheet> {
               if (stages.length > 1) ...[
                 const SizedBox(height: 12),
                 Text(
-                  'Стадия старта',
+                  'Этап старта',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 8),

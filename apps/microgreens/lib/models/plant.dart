@@ -598,6 +598,10 @@ class GardenPlant {
     return '${displayName(plant)} от $date';
   }
 
+  /// Stable suffix for matching rows in [PlantingLogService] after renames.
+  String cycleDateSuffix() =>
+      ' от ${formatStartDate(startedAt).replaceAll('.', '')}';
+
   /// Compact title for notifications: `Горох от 8авг.`
   String titleCompact(Plant plant) =>
       '${displayName(plant)} от ${formatStartDateCompact(startedAt)}';

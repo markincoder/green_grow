@@ -11,6 +11,8 @@
   var reloading = false;
   var prompted = false;
   var watched = null;
+  var lastPingAt = 0;
+  var PING_MIN_MS = 5 * 60 * 1000;
 
   function scopeUrl() {
     try {
@@ -297,8 +299,14 @@
     if (reg.installing) trackInstalling(reg.installing, reg);
   }
 
-  function ping(reg) {
+  function ping(reg, force) {
     if (!reg) return;
+    var now = Date.now();
+    if (!force && now - lastPingAt < PING_MIN_MS) {
+      watch(reg);
+      return;
+    }
+    lastPingAt = now;
     try {
       var p = reg.update();
       if (p && typeof p.then === 'function') {
@@ -314,7 +322,7 @@
   function attach(reg) {
     if (!reg) return;
     watch(reg);
-    ping(reg);
+    ping(reg, true);
   }
 
   function start() {
@@ -336,7 +344,7 @@
         watch(reg);
         ping(reg);
       });
-    }, 30 * 1000);
+    }, 5 * 60 * 1000);
   }
 
   navigator.serviceWorker.addEventListener('message', function (event) {

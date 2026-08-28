@@ -115,7 +115,7 @@ void main() {
     );
     expect(fresh.titleWithDate(arugula), 'Рукола от 7 авг');
     expect(fresh.stageVerb(arugula, now), 'Прорастает');
-    expect(fresh.statusLine(arugula, now), 'Прорастает. Раскрыть 9 авг');
+    expect(fresh.statusLine(arugula, now), 'Прорастает. Раскрыть 10 авг');
     expect(fresh.nextActionLabel(arugula), 'Раскрыть');
 
     final soaking = GardenPlant(
@@ -264,7 +264,7 @@ void main() {
 
     final toLight = garden.dueActions(arugula).single;
     expect(toLight.kind, DueActionKind.toLight);
-    expect(toLight.at, started.add(const Duration(hours: 48)));
+    expect(toLight.at, started.add(const Duration(hours: 72)));
     final lightDay =
         DateTime(toLight.at.year, toLight.at.month, toLight.at.day);
     expect(
@@ -535,8 +535,8 @@ void main() {
 
   test('due actions use catalog minimum duration', () {
     final arugula = plantById('arugula_mg')!;
-    expect(arugula.cycleDaysLabel, '7–9 дн.');
-    expect(arugula.germinateHoursForTiming, 48); // min 2d
+    expect(arugula.cycleDaysLabel, '8–10 дн.');
+    expect(arugula.germinateHoursForTiming, 72); // min 3d
     expect(arugula.growDaysLow, 5);
 
     final started = DateTime(2026, 8, 1, 10);
@@ -549,7 +549,7 @@ void main() {
       stageChangedAt: started,
     );
     final due = garden.dueActions(arugula).single;
-    expect(due.at, started.add(const Duration(hours: 48)));
+    expect(due.at, started.add(const Duration(hours: 72)));
     expect(
       garden.reminderLine(arugula, due),
       'Рукола от 1 авг\nраскрыть',

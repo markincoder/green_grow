@@ -7,10 +7,12 @@ class SettingsStore extends ChangeNotifier {
   static const _hourKey = 'reminder_hour';
   static const _minuteKey = 'reminder_minute';
   static const _enabledKey = 'reminders_enabled';
+  static const _soakSeparateKey = 'soak_separate_enabled';
   static const _dismissedKey = 'dismissed_reminders_v1';
 
   bool loaded = false;
   bool enabled = true;
+  bool soakSeparateEnabled = true;
   TimeOfDay reminderTime = const TimeOfDay(hour: 9, minute: 0);
 
   final Set<String> _dismissed = {};
@@ -20,6 +22,7 @@ class SettingsStore extends ChangeNotifier {
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     enabled = prefs.getBool(_enabledKey) ?? true;
+    soakSeparateEnabled = prefs.getBool(_soakSeparateKey) ?? true;
     reminderTime = TimeOfDay(
       hour: prefs.getInt(_hourKey) ?? 9,
       minute: prefs.getInt(_minuteKey) ?? 0,
@@ -36,6 +39,13 @@ class SettingsStore extends ChangeNotifier {
     enabled = value;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_enabledKey, value);
+    notifyListeners();
+  }
+
+  Future<void> setSoakSeparateEnabled(bool value) async {
+    soakSeparateEnabled = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_soakSeparateKey, value);
     notifyListeners();
   }
 

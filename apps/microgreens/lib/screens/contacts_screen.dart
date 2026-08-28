@@ -20,8 +20,8 @@ class ContactsScreen extends StatelessWidget {
   static const _links = <_ContactLink>[
     _ContactLink(
       title: 'Телеграм',
-      subtitle: 't.me/agronizer',
-      url: 'https://t.me/agronizer',
+      subtitle: 't.me/microgreens_app',
+      url: 'https://t.me/microgreens_app',
       icon: Icons.send_rounded,
     ),
     _ContactLink(

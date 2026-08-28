@@ -427,31 +427,31 @@ void main() {
       stage: GrowthStage.germinate,
       stageChangedAt: started,
     );
-    expect(arugula.germinateHoursForTiming, 48);
+    expect(arugula.germinateHoursForTiming, 72);
     expect(
       garden.germinateReminderAt(arugula),
-      DateTime(2026, 8, 10, 10, 0),
+      DateTime(2026, 8, 11, 10, 0),
     );
 
     final beforeHour = ReminderService.buildTodayReminders(
       plants: [garden],
-      day: DateTime(2026, 8, 10),
-      now: DateTime(2026, 8, 10, 9, 59),
+      day: DateTime(2026, 8, 11),
+      now: DateTime(2026, 8, 11, 9, 59),
     );
     expect(beforeHour, hasLength(1));
     expect(beforeHour.single.actionLabel, 'раскрыть');
 
     final dayBefore = ReminderService.buildTodayReminders(
       plants: [garden],
-      day: DateTime(2026, 8, 9),
-      now: DateTime(2026, 8, 9, 23, 0),
+      day: DateTime(2026, 8, 10),
+      now: DateTime(2026, 8, 10, 23, 0),
     );
     expect(dayBefore, isEmpty);
 
     final afterHour = ReminderService.buildTodayReminders(
       plants: [garden],
-      day: DateTime(2026, 8, 10),
-      now: DateTime(2026, 8, 10, 10, 0),
+      day: DateTime(2026, 8, 11),
+      now: DateTime(2026, 8, 11, 10, 0),
     );
     expect(afterHour, hasLength(1));
     expect(afterHour.single.actionLabel, 'раскрыть');
@@ -632,5 +632,60 @@ void main() {
     expect(body, contains('собрать'));
     expect(body, isNot(contains('посеять')));
     expect(body, isNot(contains('раскрыть')));
+  });
+
+  test('web tray delivery key is id-only for soak and germinate', () {
+    expect(
+      ReminderService.webTrayDeliveryKey(
+        'soak-g1',
+        '2026-08-20T13:00:00.000Z',
+      ),
+      'soak-g1',
+    );
+    expect(
+      ReminderService.webTrayDeliveryKey(
+        'germinate-g-luk',
+        '2026-08-18T09:00:00.000Z',
+      ),
+      'germinate-g-luk',
+    );
+    expect(
+      ReminderService.webTrayDeliveryKey(
+        'digest-2026820',
+        '2026-08-20T06:00:00.000Z',
+      ),
+      'digest-2026820|2026-08-20T06:00:00.000Z',
+    );
+  });
+
+  test('tray sent token is stable per notification id', () {
+    final id = ReminderService.notificationIdFor('g-pea', DueActionKind.sow);
+    expect(ReminderService.traySentToken(id), ReminderService.traySentToken(id));
+    expect(
+      ReminderService.traySentToken(id),
+      isNot(ReminderService.traySentToken(
+        ReminderService.notificationIdFor('g-pea', DueActionKind.toLight),
+      )),
+    );
+  });
+
+  test('digest still lists soak when separate soak push is disabled', () {
+    final pea = plantById('pea')!;
+    final garden = GardenPlant(
+      id: 'g-pea-digest',
+      plantId: pea.id,
+      startedAt: DateTime(2026, 8, 20, 8),
+      lastWateredAt: DateTime(2026, 8, 20, 8),
+      stage: GrowthStage.soak,
+      stageChangedAt: DateTime(2026, 8, 20, 8),
+    );
+    final digestAt = DateTime(2026, 8, 20, 9, 0);
+    final body = ReminderService.buildDailyDigestBody(
+      plants: [garden],
+      day: DateTime(2026, 8, 20),
+      digestAt: digestAt,
+    );
+    expect(body, isNotNull);
+    expect(body, contains('Горох'));
   });
 }

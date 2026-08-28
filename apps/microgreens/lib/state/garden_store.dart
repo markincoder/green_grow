@@ -100,6 +100,15 @@ class GardenStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> updateCustomName(String id, String name) async {
+    final index = _plants.indexWhere((p) => p.id == id);
+    if (index < 0) return;
+    final trimmed = name.trim();
+    _plants[index].customName = trimmed.isEmpty ? null : trimmed;
+    await _persist();
+    notifyListeners();
+  }
+
   /// Mark all trays on light as watered today.
   Future<void> waterGrowingPlants() async {
     final now = DateTime.now();
@@ -138,6 +147,9 @@ class GardenStore extends ChangeNotifier {
     if (plant == null) return null;
 
     if (garden.completesNext(plant)) {
+      // Home harvest reminder: dismiss only; actual harvest is on the garden screen.
+      if (kind == DueActionKind.harvest) return null;
+
       final snapshot = GardenPlant.fromJson(garden.toJson());
       await harvestPlant(gardenId);
       return ReminderUndo.harvest(snapshot, index);
@@ -228,14 +240,15 @@ class GardenStore extends ChangeNotifier {
     await _removePlant(id, action: 'собрать');
   }
 
-  Future<void> removePlant(String id) async {
-    await _removePlant(id, action: 'удалить');
+  Future<ReminderUndo?> removePlant(String id) async {
+    return _removePlant(id, action: 'удалить');
   }
 
-  Future<void> _removePlant(String id, {required String action}) async {
+  Future<ReminderUndo?> _removePlant(String id, {required String action}) async {
     final index = _plants.indexWhere((p) => p.id == id);
-    if (index < 0) return;
+    if (index < 0) return null;
     final garden = _plants[index];
+    final snapshot = GardenPlant.fromJson(garden.toJson());
     final plant = plantById(garden.plantId);
     final cycleName = plant != null
         ? garden.titleWithDate(plant)
@@ -250,6 +263,7 @@ class GardenStore extends ChangeNotifier {
     );
     await _persist();
     notifyListeners();
+    return ReminderUndo.harvest(snapshot, index);
   }
 }
 

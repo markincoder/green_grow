@@ -10,8 +10,9 @@ import xlrd
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-XLS = ROOT / "базазнаний20260826" / "База знаний 20260826.xls"
-IMG_SRC = ROOT / "базазнаний20260826" / "images"
+KB_DIR = ROOT / "базазнаний 20260828"
+XLS = KB_DIR / "База знаний 20260828.xls"
+IMG_SRC = KB_DIR / "png"
 OUT_DART = ROOT / "apps" / "microgreens" / "lib" / "data" / "plants_data.dart"
 OUT_ASSETS = ROOT / "apps" / "microgreens" / "assets" / "plants"
 
@@ -243,6 +244,7 @@ def main() -> None:
             cell(
                 row,
                 headers,
+                "Вес семян на лоток 18*13 см",
                 "Вес семян на лоток 19*11 или 18*13 см",
                 "Семена вес на лоток 13см*18см",
                 "Вес семян на лоток 13*18 см",
@@ -338,6 +340,13 @@ def main() -> None:
             }
         )
 
+    tag_set: set[str] = set()
+    for p in plants:
+        tag_set.update(p["tags"])
+    tag_order = ["быстро", "быстрый", "яркий вкус", "эффектно", "эффектный"]
+    filter_tags = [t for t in tag_order if t in tag_set]
+    filter_tags.extend(sorted(tag_set - set(filter_tags)))
+
     lines = [
         "import '../models/plant.dart';",
         "",
@@ -346,14 +355,17 @@ def main() -> None:
         "",
         "/// Filter chips for the knowledge base (from Excel «Для фильтров»).",
         "const catalogFilterTags = <String>[",
-        "  'быстрый',",
-        "  'яркий вкус',",
-        "  'эффектный',",
-        "];",
-        "",
-        "/// Old slug ids → Excel numeric ids (saved garden trays).",
-        "const _plantIdAliases = <String, String>{",
     ]
+    for tag in filter_tags:
+        lines.append(f"  {dart_str(tag)},")
+    lines.extend(
+        [
+            "];",
+            "",
+            "/// Old slug ids → Excel numeric ids (saved garden trays).",
+            "const _plantIdAliases = <String, String>{",
+        ]
+    )
     for legacy, numeric in sorted(aliases.items(), key=lambda x: x[1]):
         lines.append(f"  {dart_str(legacy)}: {dart_str(numeric)},")
     lines.extend(

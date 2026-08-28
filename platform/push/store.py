@@ -117,7 +117,12 @@ class Store:
 
     @staticmethod
     def _delivery_key(item: dict[str, Any]) -> str:
-        return f"{item.get('id')}|{item.get('at')}"
+        item_id = str(item.get("id") or "")
+        at = str(item.get("at") or "")
+        # Tray phase pushes: once per tray id even if the app re-syncs overdue items.
+        if item_id.startswith("soak-") or item_id.startswith("germinate-"):
+            return item_id
+        return f"{item_id}|{at}"
 
     def _send_sync(self, sub: dict[str, Any], title: str, body: str, data: dict[str, Any]) -> None:
         webpush(

@@ -542,6 +542,7 @@ class ReminderService {
     required List<GardenPlant> plants,
     required TimeOfDay reminderTime,
     required bool enabled,
+    required bool soakSeparateEnabled,
     required Set<String> dismissedKeys,
   }) async {
     if (!WebPushService.isSupported) {
@@ -564,6 +565,7 @@ class ReminderService {
       final items = <WebPushScheduleItem>[];
 
       for (final garden in plants) {
+        if (!soakSeparateEnabled) continue;
         if (garden.stage != GrowthStage.soak) continue;
         final plant = plantById(garden.plantId);
         if (plant == null || !plant.needsSoak) continue;
@@ -657,6 +659,7 @@ class ReminderService {
     required List<GardenPlant> plants,
     required TimeOfDay reminderTime,
     required bool enabled,
+    bool soakSeparateEnabled = true,
     Set<String> dismissedKeys = const {},
   }) {
     // Serialize: overlapping cancel/reschedule dropped soak alarms when the
@@ -666,6 +669,7 @@ class ReminderService {
         plants: plants,
         reminderTime: reminderTime,
         enabled: enabled,
+        soakSeparateEnabled: soakSeparateEnabled,
         dismissedKeys: dismissedKeys,
       ),
     );
@@ -677,6 +681,7 @@ class ReminderService {
     required List<GardenPlant> plants,
     required TimeOfDay reminderTime,
     required bool enabled,
+    required bool soakSeparateEnabled,
     required Set<String> dismissedKeys,
   }) async {
     if (kIsWeb) {
@@ -684,6 +689,7 @@ class ReminderService {
         plants: plants,
         reminderTime: reminderTime,
         enabled: enabled,
+        soakSeparateEnabled: soakSeparateEnabled,
         dismissedKeys: dismissedKeys,
       );
       return;
@@ -703,6 +709,7 @@ class ReminderService {
       final keepIds = <int>{};
 
       for (final garden in plants) {
+        if (!soakSeparateEnabled) continue;
         if (garden.stage != GrowthStage.soak) continue;
         final plant = plantById(garden.plantId);
         if (plant == null || !plant.needsSoak) continue;
@@ -847,22 +854,41 @@ class ReminderService {
   }
 
   /// Same clock as the home-page reminder: catalog min hours, ceiled to the hour.
-  /// If that instant is already now (clock jumped / missed alarm), show immediately.
+  /// If that instant is already now (clock jumped / missed alarm), show once.
   Future<void> _deliverTrayPush({
     required int id,
     required String body,
     required DateTime when,
     required DateTime now,
   }) async {
+    final sent = traySentToken(id);
+    if (_firedDue.contains(sent)) return;
+
     if (when.isAfter(now)) {
       await _scheduleAt(
         id: id,
         body: body,
         when: _toTz(when),
       );
+      _firedDue.add(traySchedToken(id, when));
+      await _persistFiredDue();
       return;
     }
-    if (_firedDue.contains(_firedToken(id, when))) return;
+
+    final sched = traySchedToken(id, when);
+    if (_firedDue.contains(sched)) {
+      try {
+        final pending = await _plugin.pendingNotificationRequests();
+        if (pending.any((p) => p.id == id)) return;
+      } catch (_) {}
+      _firedDue
+        ..remove(sched)
+        ..add(sent);
+      await _persistFiredDue();
+      debugPrint('ReminderService: skip overdue id=$id (already scheduled)');
+      return;
+    }
+
     try {
       await _plugin.cancel(id);
       await _plugin.show(
@@ -871,7 +897,7 @@ class ReminderService {
         body,
         _pushDetailsWithBody(body),
       );
-      _firedDue.add(_firedToken(id, when));
+      _firedDue.add(sent);
       await _persistFiredDue();
       debugPrint('ReminderService: showed overdue id=$id at $when');
     } catch (e, st) {
@@ -879,8 +905,22 @@ class ReminderService {
     }
   }
 
-  static String _firedToken(int id, DateTime when) =>
-      '$id@${when.millisecondsSinceEpoch}';
+  /// Tray push already delivered — id-only so re-sync does not re-notify.
+  @visibleForTesting
+  static String traySentToken(int id) => 'tray:$id';
+
+  @visibleForTesting
+  static String traySchedToken(int id, DateTime when) =>
+      'sched:$id@${when.millisecondsSinceEpoch}';
+
+  /// Web push server: tray phase pushes dedupe by schedule item id only.
+  @visibleForTesting
+  static String webTrayDeliveryKey(String itemId, String at) {
+    if (itemId.startsWith('soak-') || itemId.startsWith('germinate-')) {
+      return itemId;
+    }
+    return '$itemId|$at';
+  }
 
   Future<void> _loadFiredDue() async {
     try {

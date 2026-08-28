@@ -224,6 +224,23 @@ class SettingsScreen extends StatelessWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+              SoftPanel(
+                child: SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Замачивание'),
+                  subtitle: Text(
+                    settings.soakSeparateEnabled
+                        ? 'Отдельное уведомление, когда прошло мин. время'
+                        : 'Только в общем списке в ${settings.reminderTimeLabel}',
+                  ),
+                  value: settings.soakSeparateEnabled,
+                  activeThumbColor: AppColors.meadow,
+                  onChanged: settings.enabled
+                      ? (v) => settings.setSoakSeparateEnabled(v)
+                      : null,
+                ),
+              ),
             ],
           );
         },

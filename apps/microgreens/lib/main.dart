@@ -176,6 +176,7 @@ class _GreenGrowAppState extends State<GreenGrowApp>
       plants: _store.plants,
       reminderTime: _settings.reminderTime,
       enabled: _settings.enabled,
+      soakSeparateEnabled: _settings.soakSeparateEnabled,
       dismissedKeys: _settings.dismissedReminderKeys,
     );
   }

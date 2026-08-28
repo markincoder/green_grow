@@ -337,16 +337,17 @@
     }
     return Promise.resolve(p)
       .then(function () {
-        if (!navigator.serviceWorker.controller) {
-          // First visit: SW installed but page not controlled until reload.
-          return navigator.serviceWorker.ready;
+        if (navigator.serviceWorker.controller) {
+          swReadyForInstall = true;
+          if (step === 'icon' && root) render();
+          return true;
         }
-        return navigator.serviceWorker.ready;
-      })
-      .then(function () {
-        swReadyForInstall = true;
-        if (step === 'icon' && root) render();
-        return true;
+        // First visit: SW installed but page not controlled until reload.
+        return navigator.serviceWorker.ready.then(function () {
+          swReadyForInstall = true;
+          if (step === 'icon' && root) render();
+          return true;
+        });
       })
       .catch(function () {
         swReadyForInstall = false;
@@ -605,9 +606,13 @@
     s.async = true;
     s.onerror = function () {
       window.__agronizerFlutterLoading = false;
+      var offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+      var text = offline
+        ? 'Нет интернета. Откройте приложение онлайн хотя бы один раз после установки — затем оно будет работать офлайн.'
+        : 'Не удалось загрузить приложение. Обновите страницу.';
       document.body.insertAdjacentHTML(
         'beforeend',
-        '<p style="padding:24px;font-family:system-ui">Не удалось загрузить приложение. Обновите страницу.</p>',
+        '<p style="padding:24px;font-family:system-ui">' + text + '</p>',
       );
     };
     document.body.appendChild(s);

@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 
 import '../models/plant.dart';
+import '../services/garden_stage_timeline.dart';
 import '../state/favorites_store.dart';
 import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/favorite_star.dart';
+import '../widgets/garden_stage_timeline.dart';
 
-class PlantDetailScreen extends StatelessWidget {
+class PlantDetailScreen extends StatefulWidget {
   const PlantDetailScreen({
     super.key,
     required this.plant,
@@ -23,23 +25,54 @@ class PlantDetailScreen extends StatelessWidget {
   final GardenPlant? gardenPlant;
   final VoidCallback? onPlantAdded;
 
+  @override
+  State<PlantDetailScreen> createState() => _PlantDetailScreenState();
+}
+
+class _PlantDetailScreenState extends State<PlantDetailScreen> {
+  TextEditingController? _nameController;
+  String? _nameGardenId;
+  String? _stagePeriodsKey;
+  Future<List<GardenStagePeriod>>? _stagePeriodsFuture;
+
+  @override
+  void dispose() {
+    _nameController?.dispose();
+    super.dispose();
+  }
+
+  void _ensureNameController(GardenPlant gp, Plant plant) {
+    if (_nameGardenId == gp.id && _nameController != null) return;
+    _nameController?.dispose();
+    _nameController = TextEditingController(text: gp.displayName(plant));
+    _nameGardenId = gp.id;
+  }
+
+  void _reloadStagePeriods(GardenPlant gp, Plant plant) {
+    _stagePeriodsFuture = loadGardenStagePeriods(garden: gp, plant: plant);
+  }
+
+  Future<void> _saveTrayName(String gardenId) async {
+    final controller = _nameController;
+    if (controller == null) return;
+    await widget.store.updateCustomName(gardenId, controller.text);
+  }
+
   Future<void> _start(BuildContext context) async {
     final added = await addPlantToGarden(
       context: context,
-      plant: plant,
-      store: store,
+      plant: widget.plant,
+      store: widget.store,
     );
     if (added && context.mounted) {
       Navigator.of(context).pop();
-      onPlantAdded?.call();
+      widget.onPlantAdded?.call();
     }
   }
 
-  Future<void> _advance(BuildContext context) async {
-    final gp = gardenPlant;
-    if (gp == null) return;
-    final completes = gp.completesNext(plant);
-    await store.advancePlant(gp.id);
+  Future<void> _advance(BuildContext context, GardenPlant gp) async {
+    final completes = gp.completesNext(widget.plant);
+    await widget.store.advancePlant(gp.id);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -52,35 +85,103 @@ class PlantDetailScreen extends StatelessWidget {
     if (completes) Navigator.of(context).pop();
   }
 
+  void _openCultureCard(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PlantDetailScreen(
+          plant: widget.plant,
+          store: widget.store,
+          favorites: widget.favorites,
+          onPlantAdded: widget.onPlantAdded,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: Listenable.merge([store, favorites]),
+      animation: Listenable.merge([widget.store, widget.favorites]),
       builder: (context, _) {
         final now = DateTime.now();
-        final gpId = gardenPlant?.id;
+        final plant = widget.plant;
+        final gpId = widget.gardenPlant?.id;
         final gp = gpId == null
             ? null
-            : store.plants.where((p) => p.id == gpId).firstOrNull;
-        final isFavorite = favorites.isFavorite(plant.id);
+            : widget.store.plants.where((p) => p.id == gpId).firstOrNull;
+        final isFavorite = widget.favorites.isFavorite(plant.id);
+        final isTray = gp != null;
+
+        if (isTray) {
+          _ensureNameController(gp, plant);
+          final periodsKey =
+              '${gp.id}|${gp.stage.name}|${gp.stageChangedAt.millisecondsSinceEpoch}';
+          if (_stagePeriodsKey != periodsKey) {
+            _stagePeriodsKey = periodsKey;
+            _reloadStagePeriods(gp, plant);
+          }
+        }
 
         return Scaffold(
           backgroundColor: AppColors.canvas,
           appBar: AppBar(
-            title: Text(plant.name),
+            title: isTray
+                ? Row(
+                    children: [
+                      Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: () => _openCultureCard(context),
+                          customBorder: const CircleBorder(),
+                          child: PlantAvatar(
+                            icon: plant.listAvatar,
+                            size: 34,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          plant.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(plant.name),
           ),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
             children: [
-              if (gp != null)
+              if (isTray)
                 SoftPanel(
                   color: AppColors.mist.withValues(alpha: 0.65),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        gp.titleWithDate(plant),
-                        style: Theme.of(context).textTheme.titleLarge,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _nameController,
+                              textCapitalization: TextCapitalization.sentences,
+                              style: Theme.of(context).textTheme.titleLarge,
+                              decoration: const InputDecoration(
+                                isDense: true,
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                              onSubmitted: (_) => _saveTrayName(gp.id),
+                              onTapOutside: (_) => _saveTrayName(gp.id),
+                            ),
+                          ),
+                          Text(
+                            gp.cycleDateSuffix(),
+                            style: Theme.of(context).textTheme.titleLarge,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -93,11 +194,6 @@ class PlantDetailScreen extends StatelessWidget {
                                   fontWeight: FontWeight.w600,
                                 ),
                       ),
-                      const SizedBox(height: 14),
-                      GrowthProgressBar(
-                        progress: gp.progressFor(plant, now),
-                        stage: gp.stageFor(plant, now),
-                      ),
                       const SizedBox(height: 12),
                       Text(
                         gp.harvestLine(plant, now),
@@ -107,7 +203,7 @@ class PlantDetailScreen extends StatelessWidget {
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: () => _advance(context),
+                          onPressed: () => _advance(context, gp),
                           icon: gp.completesNext(plant)
                               ? const Icon(Icons.content_cut_rounded)
                               : const SizedBox.shrink(),
@@ -147,7 +243,7 @@ class PlantDetailScreen extends StatelessWidget {
                                       ? 'Убрать из избранного'
                                       : 'В избранное',
                                   onPressed: () =>
-                                      favorites.toggle(plant.id),
+                                      widget.favorites.toggle(plant.id),
                                   visualDensity: VisualDensity.compact,
                                   style: IconButton.styleFrom(
                                     minimumSize: const Size(36, 36),
@@ -255,55 +351,82 @@ class PlantDetailScreen extends StatelessWidget {
                 ],
               ],
               const SizedBox(height: 24),
-              Text('Стадии', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 12),
-              StageTimeline(plant: plant),
-              const SizedBox(height: 24),
-              Text('Условия', style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _InfoChip(
-                    icon: Icons.schedule,
-                    label: 'Полный цикл ${plant.cycleDaysLabel}',
-                  ),
-                  _InfoChip(
-                    icon: Icons.scale_outlined,
-                    label: gp?.seedGrams != null
-                        ? '${gp!.seedGrams} г · Вес семян на лоток 19×11 или 18×13 см'
-                        : '${plant.seedGramsLabel} · Вес семян на лоток 19×11 или 18×13 см',
-                  ),
-                  if (plant.tray != null)
-                    _InfoChip(
-                      glyph: _ConditionGlyph.tray,
-                      label: plant.tray!,
-                    ),
-                  _InfoChip(
-                    glyph: _ConditionGlyph.mat,
-                    label: plant.soil,
-                  ),
-                  if (plant.feature != null)
-                    _InfoChip(
-                      icon: Icons.info_outline_rounded,
-                      label: plant.feature!,
-                    ),
-                  _InfoChip(
-                    icon: Icons.wb_sunny_outlined,
-                    label: plant.light,
-                  ),
-                  _InfoChip(
-                    icon: Icons.thermostat,
-                    label: plant.temperature,
-                  ),
-                  if (plant.storage != null)
-                    _InfoChip(
-                      glyph: _ConditionGlyph.jar,
-                      label: plant.storage!,
-                    ),
-                ],
+              Text(
+                'Этапы',
+                style: Theme.of(context).textTheme.titleLarge,
               ),
+              const SizedBox(height: 12),
+              if (isTray)
+                FutureBuilder<List<GardenStagePeriod>>(
+                  future: _stagePeriodsFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const SoftPanel(
+                        padding: EdgeInsets.all(20),
+                        child: Center(
+                          child: SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      );
+                    }
+                    return GardenStageTimeline(
+                      periods: snapshot.data ?? const [],
+                      now: now,
+                    );
+                  },
+                )
+              else
+                StageTimeline(plant: plant),
+              if (!isTray) ...[
+                const SizedBox(height: 24),
+                Text('Условия', style: Theme.of(context).textTheme.titleLarge),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _InfoChip(
+                      icon: Icons.schedule,
+                      label: 'Полный цикл ${plant.cycleDaysLabel}',
+                    ),
+                    _InfoChip(
+                      icon: Icons.scale_outlined,
+                      label:
+                          '${plant.seedGramsLabel} · Вес семян на лоток 19×11 или 18×13 см',
+                    ),
+                    if (plant.tray != null)
+                      _InfoChip(
+                        glyph: _ConditionGlyph.tray,
+                        label: plant.tray!,
+                      ),
+                    _InfoChip(
+                      glyph: _ConditionGlyph.mat,
+                      label: plant.soil,
+                    ),
+                    if (plant.feature != null)
+                      _InfoChip(
+                        icon: Icons.info_outline_rounded,
+                        label: plant.feature!,
+                      ),
+                    _InfoChip(
+                      icon: Icons.wb_sunny_outlined,
+                      label: plant.light,
+                    ),
+                    _InfoChip(
+                      icon: Icons.thermostat,
+                      label: plant.temperature,
+                    ),
+                    if (plant.storage != null)
+                      _InfoChip(
+                        glyph: _ConditionGlyph.jar,
+                        label: plant.storage!,
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
         );
@@ -406,7 +529,6 @@ class _ConditionGlyphPainter extends CustomPainter {
   }
 
   void _paintTray(Canvas canvas, Paint stroke) {
-    // Shallow growing tray seen from an angle.
     final body = RRect.fromRectAndRadius(
       const Rect.fromLTWH(3, 10, 18, 9),
       const Radius.circular(2.2),
@@ -418,7 +540,6 @@ class _ConditionGlyphPainter extends CustomPainter {
   }
 
   void _paintJar(Canvas canvas, Paint stroke, Paint fill) {
-    // Storage jar with lid.
     final body = RRect.fromRectAndRadius(
       const Rect.fromLTWH(6.5, 7.5, 11, 13),
       const Radius.circular(3),
@@ -435,7 +556,6 @@ class _ConditionGlyphPainter extends CustomPainter {
   }
 
   void _paintMat(Canvas canvas, Paint stroke) {
-    // Flat grow mat / underlay with stitch lines.
     final mat = RRect.fromRectAndRadius(
       const Rect.fromLTWH(3.5, 6.5, 17, 11),
       const Radius.circular(2),
@@ -642,7 +762,6 @@ class _PlantPhotoLightboxState extends State<_PlantPhotoLightbox> {
                 ),
               ),
             ),
-          // Above PageView so the close control always receives taps.
           Positioned(
             top: topPad + 12,
             right: 12,

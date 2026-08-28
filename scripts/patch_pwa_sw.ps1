@@ -40,7 +40,7 @@ function Write-Utf8File([string]$Path, [string]$Text) {
 
 Copy-Item -Force $ours $sw
 
-$webOut = Split-Path $sw -Parent
+$webOut = (Resolve-Path -LiteralPath (Split-Path $sw -Parent)).Path
 $verFile = Join-Path $webOut "version.json"
 $stamp = Get-Date -Format "yyyyMMddHHmmss"
 if (Test-Path $verFile) {
@@ -60,7 +60,42 @@ if (Test-Path $mainJs) {
 $cache = "microgreens-shell-$stamp"
 $text = Read-Utf8File $sw
 $text = [regex]::Replace($text, "const CACHE = '[^']+'", "const CACHE = '$cache'")
+
+function Get-OfflinePrecachePaths([string]$Root) {
+  $Root = (Resolve-Path -LiteralPath $Root).Path
+  $paths = New-Object System.Collections.Generic.List[string]
+  [void]$paths.Add('./main.dart.js')
+  [void]$paths.Add('./flutter.js')
+  [void]$paths.Add('./flutter_bootstrap.js')
+  [void]$paths.Add('./setup_gate.js')
+  [void]$paths.Add('./push_client.js')
+  [void]$paths.Add('./pwa_update.js')
+  [void]$paths.Add('./version.json')
+  [void]$paths.Add('./canvaskit/canvaskit.js')
+  [void]$paths.Add('./canvaskit/canvaskit.wasm')
+
+  $assetsRoot = Join-Path $Root 'assets'
+  if (Test-Path $assetsRoot) {
+    Get-ChildItem -Path $assetsRoot -Recurse -File | ForEach-Object {
+      $full = $_.FullName
+      $rel = $full.Substring($Root.Length).TrimStart('\', '/').Replace('\', '/')
+      [void]$paths.Add("./$rel")
+    }
+  }
+
+  return ($paths | Select-Object -Unique | Sort-Object)
+}
+
+$offlinePaths = Get-OfflinePrecachePaths $webOut
+$offlineJs = ($offlinePaths | ForEach-Object { "  '$_'," }) -join "`n"
+$text = [regex]::Replace(
+  $text,
+  'const PRECACHE_OFFLINE = \[[\s\S]*?\];',
+  "const PRECACHE_OFFLINE = [`n$offlineJs`n];",
+  [System.Text.RegularExpressions.RegexOptions]::Singleline
+)
 Write-Utf8File $sw $text
+Write-Host "PWA offline precache -> $($offlinePaths.Count) files"
 Write-Host "PWA cache name -> $cache"
 
 $boot = Join-Path $webOut "flutter_bootstrap.js"

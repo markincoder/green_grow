@@ -1,3 +1,5 @@
+import 'dart:async' as async;
+
 import 'package:flutter/material.dart';
 
 import '../data/plants_data.dart';
@@ -27,6 +29,35 @@ class GardenScreen extends StatefulWidget {
 
 class _GardenScreenState extends State<GardenScreen> {
   _GardenFilter _filter = _GardenFilter.all;
+
+  Future<void> _deletePlant(GardenPlant gardenPlant, Plant plant) async {
+    final undo = await widget.store.removePlant(gardenPlant.id);
+    if (!mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    final controller = messenger.showSnackBar(
+      SnackBar(
+        content: Text(gardenPlant.titleWithDate(plant)),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        dismissDirection: DismissDirection.down,
+        action: SnackBarAction(
+          label: 'Отменить',
+          onPressed: () async {
+            if (undo != null) {
+              await widget.store.undoReminderAction(undo);
+            }
+          },
+        ),
+      ),
+    );
+    async.unawaited(
+      Future<void>.delayed(const Duration(seconds: 3), () {
+        controller.close();
+      }),
+    );
+  }
 
   /// Soonest harvest date first.
   static List<GardenPlant> _byHarvestDate(
@@ -278,8 +309,9 @@ class _GardenScreenState extends State<GardenScreen> {
                                 ),
                                 IconButton(
                                   tooltip: 'Удалить',
-                                  onPressed: () => widget.store
-                                      .removePlant(gardenPlant.id),
+                                  onPressed: () => async.unawaited(
+                                    _deletePlant(gardenPlant, plant),
+                                  ),
                                   icon: const Icon(
                                     Icons.delete_outline_rounded,
                                     color: AppColors.muted,
