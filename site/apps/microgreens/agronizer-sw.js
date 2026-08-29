@@ -2,16 +2,15 @@
  * Copied over flutter_service_worker.js after `flutter build web`
  * because current Flutter emits an uninstall stub by default.
  *
- * Shell assets: stale-while-revalidate for offline open.
- * Update-critical files (index, pwa_update, version, bootstrap): network-first
- * so a waiting worker can offer the update dialog without a stale shell.
- * Icons / plant images / Flutter assets: network-first + no-cache fetch so
- * same-URL files refresh after an update (SWR + old shells caused stale media).
- * New builds wait for SKIP_WAITING before replacing the active worker.
+ * Offline: patch_pwa_sw.ps1 injects PRECACHE_OFFLINE (main.dart.js, CanvasKit, assets).
+ * Install precaches the full app shell while the user is online during setup.
+ *
+ * Update-critical (version.json, pwa_update.js): stale-while-revalidate (cache first).
+ * Boot assets: cache-first. Everything else: cache-first, then network.
  */
 'use strict';
 
-const CACHE = 'microgreens-shell-v15';
+const CACHE = 'microgreens-shell-v18-offline';
 const PRECACHE = [
   './',
   './index.html',
@@ -21,13 +20,51 @@ const PRECACHE = [
   './icons/Icon-512.png',
 ];
 
+/** Filled by scripts/patch_pwa_sw.ps1 after flutter build web. */
+const PRECACHE_OFFLINE = [
+  './main.dart.js',
+  './flutter.js',
+  './flutter_bootstrap.js',
+  './setup_gate.js',
+  './push_client.js',
+  './pwa_update.js',
+  './version.json',
+  './canvaskit/canvaskit.js',
+  './canvaskit/canvaskit.wasm',
+  './assets/FontManifest.json',
+  './assets/AssetManifest.bin.json',
+  './assets/AssetManifest.bin',
+  './assets/fonts/MaterialIcons-Regular.otf',
+];
+
+let shellCachePromise = null;
+let scopePathCache = null;
+
+function getShellCache() {
+  if (!shellCachePromise) {
+    shellCachePromise = caches.open(CACHE);
+  }
+  return shellCachePromise;
+}
+
+function scopePathname() {
+  if (scopePathCache) return scopePathCache;
+  try {
+    scopePathCache = new URL(self.registration.scope).pathname;
+  } catch (_) {
+    scopePathCache = '/';
+  }
+  return scopePathCache;
+}
+
 async function precacheShell() {
-  const cache = await caches.open(CACHE);
+  const cache = await getShellCache();
+  const paths = [...new Set([...PRECACHE, ...PRECACHE_OFFLINE])];
   await Promise.all(
-    PRECACHE.map(async (path) => {
+    paths.map(async (path) => {
       try {
-        // Bypass HTTP cache so install does not store a previous build's icons.
-        const res = await fetch(path, { cache: 'reload' });
+        if (await cache.match(path)) return;
+        const res = await fetch(path);
         if (res && res.ok) {
           await cache.put(path, res.clone());
         }
@@ -39,9 +76,9 @@ async function precacheShell() {
 self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
+      const isFirst = !self.registration.active;
       await precacheShell();
-      // First install: activate immediately. Updates wait for SKIP_WAITING.
-      if (!self.registration.active) {
+      if (isFirst) {
         await self.skipWaiting();
         return;
       }
@@ -63,9 +100,8 @@ self.addEventListener('message', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
+      shellCachePromise = caches.open(CACHE);
       await self.clients.claim();
-      // Drop previous shells right away so post-update reloads do not keep
-      // serving same-URL icons/images from the old cache.
       const keys = await caches.keys();
       await Promise.all(
         keys
@@ -76,86 +112,110 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-async function matchOldShellCaches(req) {
-  const keys = await caches.keys();
-  const ordered = keys
-    .filter((k) => k.startsWith('microgreens-shell-') && k !== CACHE)
-    .sort((a, b) => b.localeCompare(a));
-  for (const k of ordered) {
-    const hit = await caches.open(k).then((c) => c.match(req));
-    if (hit) return hit;
+/** Cache keys ignore ?v= bust params — index.html loads scripts with query strings. */
+function normalizedCacheKey(req) {
+  try {
+    const url = new URL(req.url);
+    if (url.origin !== self.location.origin) return null;
+    const scopePath = scopePathname();
+    let path = url.pathname;
+    if (path.startsWith(scopePath)) {
+      path = path.slice(scopePath.length);
+    }
+    if (!path || path === '/') return './';
+    if (!path.startsWith('./')) path = './' + path.replace(/^\//, '');
+    return path;
+  } catch (_) {
+    return null;
   }
-  return undefined;
 }
 
-async function staleWhileRevalidate(req, { fallbackToIndex }) {
-  const cache = await caches.open(CACHE);
-  // Only the current shell for the fast path — never prefer an older build.
-  const cached = await cache.match(req);
-  const network = fetch(req, { cache: 'no-cache' })
-    .then((res) => {
-      if (res && res.ok && (res.type === 'basic' || res.type === 'cors')) {
-        cache.put(req, res.clone()).catch(() => undefined);
-      }
-      return res;
-    })
-    .catch(() => undefined);
-  if (cached) return cached;
-  const fresh = await network;
-  if (fresh) return fresh;
-  const old = await matchOldShellCaches(req);
-  if (old) return old;
-  if (fallbackToIndex) {
-    const shell =
-      (await cache.match('./index.html')) ||
-      (await matchOldShellCaches(new Request('./index.html')));
-    if (shell) return shell;
+async function matchInCache(cache, req) {
+  const key = normalizedCacheKey(req);
+  if (key) {
+    const byKey = await cache.match(key);
+    if (byKey) return byKey;
   }
+  return cache.match(req);
+}
+
+async function putInCache(cache, req, res) {
+  const key = normalizedCacheKey(req);
+  if (key) {
+    await cache.put(key, res.clone());
+    return;
+  }
+  await cache.put(req, res.clone());
+}
+
+async function matchCached(req) {
+  const cache = await getShellCache();
+  return matchInCache(cache, req);
+}
+
+async function cacheFirst(req, { store = true } = {}) {
+  const cached = await matchCached(req);
+  if (cached) return cached;
+  try {
+    const fresh = await fetch(req);
+    if (fresh && fresh.ok && (fresh.type === 'basic' || fresh.type === 'cors')) {
+      if (store) {
+        putInCache(await getShellCache(), req, fresh).catch(() => undefined);
+      }
+      return fresh;
+    }
+  } catch (_) {}
   return Response.error();
 }
 
-async function networkFirst(req, timeoutMs) {
-  const cache = await caches.open(CACHE);
+async function navigate(req) {
+  const cached = await matchCached(req);
+  if (cached) return cached;
+  try {
+    const fresh = await fetch(req);
+    if (fresh && fresh.ok) {
+      const cache = await getShellCache();
+      cache.put('./index.html', fresh.clone()).catch(() => undefined);
+      return fresh;
+    }
+  } catch (_) {}
+  const cache = await getShellCache();
+  const shell =
+    (await matchInCache(cache, new Request('./index.html'))) ||
+    (await matchInCache(cache, new Request('./')));
+  if (shell) return shell;
+  return Response.error();
+}
+
+/** Serve cached copy immediately; refresh in background for update checks. */
+async function staleWhileRevalidate(req, event, timeoutMs) {
+  const cache = await getShellCache();
+  const cached = await matchInCache(cache, req);
+  const refresh = fetch(req)
+    .then(async (fresh) => {
+      if (fresh && fresh.ok) await putInCache(cache, req, fresh);
+    })
+    .catch(() => undefined);
+  if (event) event.waitUntil(refresh);
+  if (cached) return cached;
   try {
     const fresh = await Promise.race([
-      fetch(req, { cache: 'no-cache' }),
+      fetch(req),
       new Promise((_, reject) => {
         setTimeout(() => reject(new Error('timeout')), timeoutMs);
       }),
     ]);
-    if (fresh && fresh.ok && (fresh.type === 'basic' || fresh.type === 'cors')) {
-      cache.put(req, fresh.clone()).catch(() => undefined);
+    if (fresh && fresh.ok) {
+      await putInCache(cache, req, fresh);
       return fresh;
     }
   } catch (_) {}
-  const local = await cache.match(req);
-  if (local) return local;
-  const old = await matchOldShellCaches(req);
-  if (old) return old;
-  return fetch(req, { cache: 'no-cache' });
+  return Response.error();
 }
 
-function isNetworkCritical(url, isDoc) {
-  if (isDoc) return true;
+function isUpdateChecker(url) {
   const path = url.pathname;
-  return (
-    path.endsWith('/version.json') ||
-    path.endsWith('/pwa_update.js') ||
-    path.endsWith('/flutter_bootstrap.js') ||
-    path.endsWith('/flutter.js') ||
-    path.endsWith('/index.html') ||
-    /\/main\.dart\.js$/i.test(path)
-  );
-}
-
-/** Same URL across builds — must not stay on stale-while-revalidate. */
-function isMutableStatic(url) {
-  const path = url.pathname;
-  if (path.includes('/icons/')) return true;
-  if (path.endsWith('/favicon.png') || path.endsWith('/favicon.ico')) return true;
-  if (path.endsWith('/manifest.json')) return true;
-  if (path.includes('/assets/')) return true;
-  return /\.(png|jpe?g|webp|gif|svg|ico|bin)$/i.test(path);
+  return path.endsWith('/version.json') || path.endsWith('/pwa_update.js');
 }
 
 self.addEventListener('fetch', (event) => {
@@ -174,12 +234,15 @@ self.addEventListener('fetch', (event) => {
     req.mode === 'navigate' ||
     (req.headers.get('accept') || '').includes('text/html');
 
-  if (isNetworkCritical(url, isDoc) || isMutableStatic(url)) {
-    event.respondWith(networkFirst(req, 5000));
+  if (isDoc) {
+    event.respondWith(navigate(req));
     return;
   }
-
-  event.respondWith(staleWhileRevalidate(req, { fallbackToIndex: isDoc }));
+  if (isUpdateChecker(url)) {
+    event.respondWith(staleWhileRevalidate(req, event, 800));
+    return;
+  }
+  event.respondWith(cacheFirst(req));
 });
 
 /** iOS adds "from {PWA name}" to the title — don't repeat «Микрозелень». */

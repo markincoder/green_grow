@@ -1,10 +1,13 @@
 ﻿# Build all apps from apps/apps.json into site/apps/<id>/.
 # Docker-образ FastAPI собирайте из корня стека (рядом с папкой agronizer/), не из этого репо.
-# По умолчанию Docker не трогаем; -Docker / -Up — только если найден docker-compose.yml стека.
+# По умолчанию: APK + AAB + PWA. -SkipApk / -SkipAab / -SkipWeb — пропуск шага.
+# Docker не трогаем; -Docker / -Up — только если найден docker-compose.yml стека.
 param(
   [Alias("AppId")]
   [string]$App = "",
   [switch]$SkipApk,
+  [Alias("SkipAbb")]
+  [switch]$SkipAab,
   [switch]$SkipWeb,
   [switch]$SkipClean,
   [switch]$Docker,
@@ -28,9 +31,10 @@ $targets = if ($App) {
 
 foreach ($target in $targets) {
   $buildArgs = @{
-    AppId    = "$($target.id)"
-    SkipApk  = $SkipApk
-    SkipWeb  = $SkipWeb
+    AppId   = "$($target.id)"
+    SkipApk = $SkipApk
+    SkipWeb = $SkipWeb
+    Aab     = (-not $SkipAab)
   }
   if ($SkipClean) { $buildArgs.SkipClean = $true }
   if ($VerifyApk) { $buildArgs.VerifyApk = $true }

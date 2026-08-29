@@ -182,6 +182,140 @@ class PlantAvatar extends StatelessWidget {
   }
 }
 
+/// Generic leaf icon (same as knowledge-base tab), for garden tray cards.
+class TrayGlyph extends StatelessWidget {
+  const TrayGlyph({super.key, this.size = 56, this.onTap});
+
+  final double size;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.mist,
+        borderRadius: BorderRadius.circular(size * 0.32),
+      ),
+      child: Icon(
+        Icons.eco_rounded,
+        size: size * 0.48,
+        color: AppColors.meadow,
+      ),
+    );
+    if (onTap == null) return child;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(size * 0.32),
+        ),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// Tray name with pencil edit; start date on the next line. Name wraps, not ellipsized.
+class TrayTitleBlock extends StatelessWidget {
+  const TrayTitleBlock({
+    super.key,
+    required this.gardenPlant,
+    required this.plant,
+    required this.onRename,
+    this.titleStyle,
+    this.dateStyle,
+  });
+
+  final GardenPlant gardenPlant;
+  final Plant plant;
+  final Future<void> Function(String name) onRename;
+  final TextStyle? titleStyle;
+  final TextStyle? dateStyle;
+
+  Future<void> _edit(BuildContext context) async {
+    final controller = TextEditingController(
+      text: gardenPlant.displayName(plant),
+    );
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Название лотка'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.sentences,
+            maxLines: null,
+            decoration: const InputDecoration(
+              hintText: 'Например: Редис Санго, джут',
+            ),
+            onSubmitted: (v) => Navigator.of(ctx).pop(v),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Отмена'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(controller.text),
+              child: const Text('Сохранить'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    if (result == null) return;
+    await onRename(result);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nameStyle = titleStyle ?? Theme.of(context).textTheme.titleMedium;
+    final date = dateStyle ??
+        Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: AppColors.muted,
+            );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                gardenPlant.displayName(plant),
+                style: nameStyle,
+                softWrap: true,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Переименовать',
+              onPressed: () => _edit(context),
+              visualDensity: VisualDensity.compact,
+              style: IconButton.styleFrom(
+                minimumSize: const Size(36, 36),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                padding: const EdgeInsets.all(4),
+              ),
+              icon: const Icon(
+                Icons.edit_outlined,
+                size: 18,
+                color: AppColors.muted,
+              ),
+            ),
+          ],
+        ),
+        Text(gardenPlant.startDateLine(), style: date),
+      ],
+    );
+  }
+}
+
 class StageTimeline extends StatelessWidget {
   const StageTimeline({super.key, required this.plant});
 
@@ -281,15 +415,17 @@ class StartTrayResult {
     required this.stage,
     required this.customName,
     required this.seedGrams,
+    this.trayCount = 1,
   });
 
   final DateTime startedAt;
   final GrowthStage stage;
   final String customName;
   final int seedGrams;
+  final int trayCount;
 }
 
-/// Bottom sheet: name, start date, current stage, seed weight.
+/// Bottom sheet: name, start date, tray count, current stage.
 Future<StartTrayResult?> showStartDateSheet({
   required BuildContext context,
   required Plant plant,
@@ -302,9 +438,11 @@ Future<StartTrayResult?> showStartDateSheet({
   );
 }
 
-String addedToGardenMessage(String name, DateTime startedAt) {
+String addedToGardenMessage(String name, DateTime startedAt, {int trayCount = 1}) {
   final date = formatStartDate(startedAt).replaceAll('.', '');
-  return '$name от $date - на Моей грядке';
+  final base = '$name от $date';
+  final withCount = trayCount > 1 ? '$base ($trayCount шт)' : base;
+  return '$withCount - на Моей грядке';
 }
 
 /// Opens the start sheet, saves the tray, shows «Горох от 8 авг - на Моей грядке».
@@ -322,12 +460,19 @@ Future<bool> addPlantToGarden({
     stage: result.stage,
     customName: result.customName,
     seedGrams: result.seedGrams,
+    trayCount: result.trayCount,
   );
   if (!context.mounted) return true;
 
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text(addedToGardenMessage(result.customName, result.startedAt)),
+      content: Text(
+        addedToGardenMessage(
+          result.customName,
+          result.startedAt,
+          trayCount: result.trayCount,
+        ),
+      ),
       behavior: SnackBarBehavior.floating,
     ),
   );
@@ -347,18 +492,26 @@ class _StartDateSheetState extends State<_StartDateSheet> {
   late DateTime _date = DateTime.now();
   late GrowthStage _stage;
   late final TextEditingController _nameController;
+  late final TextEditingController _trayCountController;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.plant.name);
+    _trayCountController = TextEditingController(text: '1');
     _stage = GardenPlant.initialStageFor(widget.plant);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _trayCountController.dispose();
     super.dispose();
+  }
+
+  int get _trayCount {
+    final n = int.tryParse(_trayCountController.text.trim()) ?? 1;
+    return n < 1 ? 1 : n;
   }
 
   DateTime get _resolvedStart {
@@ -496,6 +649,7 @@ class _StartDateSheetState extends State<_StartDateSheet> {
         stage: _stage,
         customName: name.isEmpty ? widget.plant.name : name,
         seedGrams: widget.plant.seedGrams,
+        trayCount: _trayCount,
       ),
     );
   }
@@ -532,7 +686,7 @@ class _StartDateSheetState extends State<_StartDateSheet> {
               ),
               const SizedBox(height: 18),
               Text(
-                'Новый цикл выращивания',
+                'Новый лоток',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 16),
@@ -540,7 +694,7 @@ class _StartDateSheetState extends State<_StartDateSheet> {
                 controller: _nameController,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  labelText: 'Название',
+                  labelText: 'Название (напр. сорт)',
                   hintText: plant.name,
                   filled: true,
                   fillColor: Colors.white,
@@ -551,61 +705,98 @@ class _StartDateSheetState extends State<_StartDateSheet> {
                 ),
               ),
               const SizedBox(height: 12),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _editDate,
-                  borderRadius: BorderRadius.circular(22),
-                  child: Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(
-                        color: AppColors.mist.withValues(alpha: 0.9),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 48,
-                          height: 48,
-                          alignment: Alignment.center,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _editDate,
+                        borderRadius: BorderRadius.circular(22),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: AppColors.mist.withValues(alpha: 0.65),
-                            borderRadius: BorderRadius.circular(16),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(22),
+                            border: Border.all(
+                              color: AppColors.mist.withValues(alpha: 0.9),
+                            ),
                           ),
-                          child: const Icon(
-                            Icons.calendar_today_rounded,
-                            color: AppColors.meadow,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             children: [
-                              Text(
-                                'Дата старта',
-                                style: Theme.of(context).textTheme.bodyMedium,
+                              Container(
+                                width: 44,
+                                height: 44,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: AppColors.mist.withValues(alpha: 0.65),
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                child: const Icon(
+                                  Icons.calendar_today_rounded,
+                                  color: AppColors.meadow,
+                                  size: 20,
+                                ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                formatStartDate(_date),
-                                style: Theme.of(context).textTheme.titleMedium,
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Дата старта',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodyMedium,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      formatStartDate(_date),
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.edit_calendar_outlined,
+                                color: AppColors.leaf,
+                                size: 20,
                               ),
                             ],
                           ),
                         ),
-                        const Icon(
-                          Icons.edit_calendar_outlined,
-                          color: AppColors.leaf,
-                        ),
-                      ],
+                      ),
                     ),
                   ),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    flex: 2,
+                    child: TextField(
+                      controller: _trayCountController,
+                      keyboardType: TextInputType.number,
+                      textAlign: TextAlign.center,
+                      onChanged: (_) => setState(() {}),
+                      decoration: InputDecoration(
+                        labelText: 'Число лотков',
+                        suffixText: 'шт',
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 18,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               if (stages.length > 1) ...[
                 const SizedBox(height: 12),

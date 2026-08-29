@@ -799,30 +799,28 @@
     return (
       'Статус уведомлений от agronizer.ru: ' +
       sitePermLabel() +
-      '\n\nСейчас отправим тестовое уведомление от приложения Микрозелень.\n\n' +
-      'Если увидели - нажмите Вижу уведомление.\n' +
-      'Если не сработало, нажмите Повторить тест.\n' +
-      'Если пара повторов не помогла - пожалуйтесь на agronizer@yandex.ru, ' +
+      '<br><br>Сейчас отправим тестовое уведомление от приложения Микрозелень.<br><br>' +
+      'Если увидели — нажмите <b>Вижу уведомление</b>.<br><br>' +
+      'Если не сработало, нажмите <b>Повторить тест</b>.<br><br>' +
+      'Если пара повторов не помогла — пожалуйтесь на agronizer@yandex.ru, ' +
       'пришлем дополнительную инструкцию по настройке браузера. ' +
-      'А пока можно нажать Пропустить - напоминаний не будет'
+      'А пока можно нажать <b>Пропустить</b> — напоминаний не будет'
     );
   }
 
   function iconStepLeadChromeAfterNotify() {
     return (
-      'Дождитесь сообщения: Уведомления настроены. Теперь можно установить приложение.\n\n' +
-      'Нажмите Установить в Chrome\n' +
-      'Если иконка уже есть - вы запустили повторную установку или оказались здесь случайно :), нажмите Пропустить\n' +
-      'Если настроить уведомления в Chrome не получилось, а напоминания нужны, нажмите Скачать APK для установки обычного Android-приложения'
+      'Нажмите Установить в Chrome / Добавить на главный экран, затем нажмите Готово.\n\n' +
+      'Если иконка уже есть (вы запустили повторную установку), нажмите Готово.\n\n' +
+      'Если не получилось настроить уведомления в браузере, а напоминания нужны, нажмите Скачать APK для установки обычного Android-приложения'
     );
   }
 
   function iconStepLeadYandexAfterNotify() {
     return (
-      'Дождитесь сообщения: Уведомления настроены. Теперь можно установить приложение.\n\n' +
-      'Нажмите (три точки - меню О сайте) и выберите пункт Добавить ярлык на рабочий стол, затем нажмите Готово\n' +
-      'Если иконка уже есть - вы запустили повторную установку или оказались здесь случайно :), нажмите Готово\n' +
-      'Если настроить уведомления в браузере не получилось, а напоминания нужны, нажмите Скачать APK для установки обычного Android-приложения'
+      'Нажмите три точки (меню «О сайте») и выберите пункт Добавить ярлык на рабочий стол / Установить как приложение, затем нажмите Готово.\n\n' +
+      'Если иконка уже есть (вы запустили повторную установку), нажмите Готово.\n\n' +
+      'Если не получилось настроить уведомления в браузере, а напоминания нужны, нажмите Скачать APK для установки обычного Android-приложения'
     );
   }
 
@@ -1053,8 +1051,8 @@
 
     if (step === 'icon') {
       title.textContent = notifyBeforeIcon()
-        ? '3. Создание иконки приложения'
-        : '1. Установка PWA: иконка на «Домой»';
+        ? 'Создание иконки приложения'
+        : 'Установка PWA: иконка на «Домой»';
       if (isIos()) {
         lead.textContent =
           'Рекомендуемый способ на iPhone: сначала иконка на «Домой», затем уведомления. Без иконки Push на iOS не работает.';
@@ -1076,7 +1074,7 @@
         );
       } else if (isYandex()) {
         if (notifyBeforeIcon()) {
-          title.textContent = '3. Установка и создание иконки приложения';
+          title.textContent = 'Установка и создание иконки приложения';
           lead.textContent = iconStepLeadYandexAfterNotify();
           steps.hidden = true;
           steps.innerHTML = '';
@@ -1118,7 +1116,7 @@
         setStatus('Иконка есть — осталось проверить уведомления.', 'ok');
       } else if (isChromeAndroid()) {
         if (notifyBeforeIcon()) {
-          title.textContent = '3. Создание иконки приложения';
+          title.textContent = 'Создание иконки приложения';
           lead.textContent = iconStepLeadChromeAfterNotify();
           steps.hidden = true;
           steps.innerHTML = '';
@@ -1223,9 +1221,7 @@
     }
 
     if (step === 'notify') {
-      title.textContent = notifyBeforeIcon()
-        ? '1. Разрешение уведомлений от сайта agronizer.ru'
-        : '2. Разрешение уведомлений от сайта agronizer.ru';
+      title.textContent = 'Разрешение уведомлений от сайта agronizer.ru';
       lead.textContent =
         'Для получения напоминаний от приложения нужно разрешить браузеру отправку уведомлений от сайта';
 
@@ -1250,8 +1246,7 @@
           : androidSiteNotifyStepsHtml();
         btnPrimary.hidden = false;
         btnPrimary.textContent = 'Проверить снова';
-        btnSecondary.hidden = false;
-        btnSecondary.textContent = 'Нет «О сайте» — открыть во вкладке';
+        btnSecondary.hidden = true;
         btnEnter.hidden = true;
         setStatus(siteNotifyDeniedStatus(), 'bad');
       } else {
@@ -1262,10 +1257,7 @@
         steps.innerHTML = '';
         btnPrimary.hidden = false;
         btnPrimary.textContent = 'Разрешить уведомления сайту';
-        btnSecondary.hidden = !isYandex();
-        if (isYandex()) {
-          btnSecondary.textContent = 'Нет «О сайте» — открыть во вкладке';
-        }
+        btnSecondary.hidden = true;
         btnEnter.hidden = true;
         setStatus('');
       }
@@ -1276,8 +1268,8 @@
     }
 
     if (step === 'confirm') {
-      title.textContent = '2. Тест уведомлений от сайта';
-      lead.textContent = confirmStepLead();
+      title.textContent = 'Тест уведомлений от сайта';
+      lead.innerHTML = confirmStepLead();
       steps.hidden = true;
       steps.innerHTML = '';
       btnPrimary.hidden = false;
@@ -1302,13 +1294,10 @@
       setStatus('');
     } else {
       lead.textContent =
-        'Push пропущен. Напоминания в фоне работать не будут, пока не разрешите уведомления.';
-      steps.hidden = false;
-      steps.innerHTML = isIos()
-        ? '<li>На iOS сначала нужна иконка на «Домой»</li>' +
-          '<li>Затем снова откройте установку PWA</li>'
-        : '<li>Позже можно снова открыть «Установить PWA» на портале</li>';
-      setStatus('Push отключён по вашему выбору.', 'bad');
+        'Приложение установлено. Напоминания присылаться не будут.';
+      steps.hidden = true;
+      steps.innerHTML = '';
+      setStatus('');
     }
     btnEnter.hidden = false;
     btnEnter.textContent = 'Открыть приложение';
@@ -1426,18 +1415,14 @@
     render();
     return fireTestNotification()
       .then(function () {
-        setStatus(
-          'Тест сайта отправлен. Не увидели — «Повторить тест сайта». Настройки браузера — только после 2 неудачных повторов.',
-        );
+        setStatus('');
         return true;
       })
       .catch(function (err) {
         setStatus(
-          'Тест сайта не отправился: ' +
+          'Тест не отправился: ' +
             ((err && err.message) || 'неизвестно') +
-            '. Проверьте: ' +
-            androidSiteNotifyShortHint() +
-            ', затем «Повторить тест сайта».',
+            '. Нажмите «Повторить тест».',
           'bad',
         );
         return false;
@@ -1685,14 +1670,6 @@
             var b = el('secondary');
             if (b) b.disabled = false;
           });
-        return;
-      }
-      if (isYandex()) {
-        openMicrogreensInBrowser();
-        setStatus(
-          'Откройте agronizer.ru во вкладке с адресной строкой. Затем ≡ / ⋮ → О сайте → Уведомления от этого сайта. Потом «Проверить снова».',
-          'ok',
-        );
         return;
       }
       renderWithStatus(

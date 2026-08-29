@@ -30,32 +30,11 @@ class PlantDetailScreen extends StatefulWidget {
 }
 
 class _PlantDetailScreenState extends State<PlantDetailScreen> {
-  TextEditingController? _nameController;
-  String? _nameGardenId;
   String? _stagePeriodsKey;
   Future<List<GardenStagePeriod>>? _stagePeriodsFuture;
 
-  @override
-  void dispose() {
-    _nameController?.dispose();
-    super.dispose();
-  }
-
-  void _ensureNameController(GardenPlant gp, Plant plant) {
-    if (_nameGardenId == gp.id && _nameController != null) return;
-    _nameController?.dispose();
-    _nameController = TextEditingController(text: gp.displayName(plant));
-    _nameGardenId = gp.id;
-  }
-
   void _reloadStagePeriods(GardenPlant gp, Plant plant) {
     _stagePeriodsFuture = loadGardenStagePeriods(garden: gp, plant: plant);
-  }
-
-  Future<void> _saveTrayName(String gardenId) async {
-    final controller = _nameController;
-    if (controller == null) return;
-    await widget.store.updateCustomName(gardenId, controller.text);
   }
 
   Future<void> _start(BuildContext context) async {
@@ -113,7 +92,6 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         final isTray = gp != null;
 
         if (isTray) {
-          _ensureNameController(gp, plant);
           final periodsKey =
               '${gp.id}|${gp.stage.name}|${gp.stageChangedAt.millisecondsSinceEpoch}';
           if (_stagePeriodsKey != periodsKey) {
@@ -128,16 +106,9 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
             title: isTray
                 ? Row(
                     children: [
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () => _openCultureCard(context),
-                          customBorder: const CircleBorder(),
-                          child: PlantAvatar(
-                            icon: plant.listAvatar,
-                            size: 34,
-                          ),
-                        ),
+                      TrayGlyph(
+                        size: 34,
+                        onTap: () => _openCultureCard(context),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -160,30 +131,14 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _nameController,
-                              textCapitalization: TextCapitalization.sentences,
-                              style: Theme.of(context).textTheme.titleLarge,
-                              decoration: const InputDecoration(
-                                isDense: true,
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                              onSubmitted: (_) => _saveTrayName(gp.id),
-                              onTapOutside: (_) => _saveTrayName(gp.id),
-                            ),
-                          ),
-                          Text(
-                            gp.cycleDateSuffix(),
-                            style: Theme.of(context).textTheme.titleLarge,
-                          ),
-                        ],
+                      TrayTitleBlock(
+                        gardenPlant: gp,
+                        plant: plant,
+                        onRename: (name) =>
+                            widget.store.updateCustomName(gp.id, name),
+                        titleStyle: Theme.of(context).textTheme.titleLarge,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
                       Text(
                         gp.statusLine(plant, now),
                         style:
@@ -193,6 +148,11 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                                       : AppColors.muted,
                                   fontWeight: FontWeight.w600,
                                 ),
+                      ),
+                      const SizedBox(height: 12),
+                      GrowthProgressBar(
+                        progress: gp.progressFor(plant, now),
+                        stage: gp.stageFor(plant, now),
                       ),
                       const SizedBox(height: 12),
                       Text(

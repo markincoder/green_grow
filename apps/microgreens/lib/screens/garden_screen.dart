@@ -274,37 +274,16 @@ class _GardenScreenState extends State<GardenScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                PlantAvatar(icon: plant.listAvatar, size: 56),
+                                const TrayGlyph(size: 56),
                                 const SizedBox(width: 14),
                                 Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        gardenPlant.titleWithDate(plant),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium,
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        gardenPlant.statusLine(plant, now),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .bodyMedium
-                                            ?.copyWith(
-                                              color: actionDueToday
-                                                  ? AppColors.sun
-                                                  : AppColors.muted,
-                                              fontWeight: actionDueToday
-                                                  ? FontWeight.w700
-                                                  : FontWeight.w500,
-                                            ),
-                                      ),
-                                    ],
+                                  child: TrayTitleBlock(
+                                    gardenPlant: gardenPlant,
+                                    plant: plant,
+                                    onRename: (name) => widget.store
+                                        .updateCustomName(gardenPlant.id, name),
                                   ),
                                 ),
                                 IconButton(
@@ -318,6 +297,21 @@ class _GardenScreenState extends State<GardenScreen> {
                                   ),
                                 ),
                               ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              gardenPlant.statusLine(plant, now),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    color: actionDueToday
+                                        ? AppColors.sun
+                                        : AppColors.muted,
+                                    fontWeight: actionDueToday
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                  ),
                             ),
                             const SizedBox(height: 14),
                             GrowthProgressBar(

@@ -26,7 +26,7 @@
     rel="preload"
     as="image"
     href="assets/microgreens-hero-sm.webp"
-    imagesrcset="assets/microgreens-hero-sm.webp 900w, assets/microgreens-hero.webp 1600w"
+    imagesrcset="assets/microgreens-hero-sm.webp 900w, assets/microgreens-hero.webp 1536w"
     imagesizes="100vw"
     type="image/webp"
     fetchpriority="high"
@@ -110,9 +110,15 @@
       background:
         linear-gradient(
           180deg,
-          rgba(27, 67, 50, 0.38) 0%,
-          rgba(27, 67, 50, 0.12) 32%,
-          rgba(18, 36, 28, 0.9) 100%
+          rgba(18, 36, 28, 0.55) 0%,
+          rgba(18, 36, 28, 0.28) 28%,
+          rgba(12, 24, 18, 0.72) 62%,
+          rgba(8, 16, 12, 0.94) 100%
+        ),
+        radial-gradient(
+          120% 70% at 20% 100%,
+          rgba(8, 16, 12, 0.55) 0%,
+          transparent 58%
         );
       z-index: 1;
     }
@@ -144,8 +150,11 @@
       font-weight: 700;
       letter-spacing: 0.14em;
       text-transform: uppercase;
-      color: rgba(216, 243, 220, 0.88);
+      color: #e8f8ec;
       margin-bottom: 0.55rem;
+      text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.55),
+        0 2px 16px rgba(0, 0, 0, 0.45);
     }
 
     .brand {
@@ -155,15 +164,21 @@
       line-height: 0.95;
       letter-spacing: -0.03em;
       margin-bottom: 0.55rem;
-      text-shadow: 0 2px 24px rgba(0, 0, 0, 0.25);
+      color: #ffffff;
+      text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.65),
+        0 4px 28px rgba(0, 0, 0, 0.55);
     }
 
     .hero__lead {
       font-size: clamp(1.02rem, 2vw, 1.18rem);
-      font-weight: 500;
+      font-weight: 600;
       max-width: 32ch;
-      color: rgba(255, 255, 255, 0.88);
+      color: #ffffff;
       margin-bottom: 1.45rem;
+      text-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.55),
+        0 2px 18px rgba(0, 0, 0, 0.45);
     }
 
     .app-card {
@@ -1021,16 +1036,16 @@
       <picture>
         <source
           type="image/webp"
-          srcset="assets/microgreens-hero-sm.webp 900w, assets/microgreens-hero.webp 1600w"
+          srcset="assets/microgreens-hero-sm.webp 900w, assets/microgreens-hero.webp 1536w"
           sizes="100vw"
         />
         <img
           src="assets/microgreens-hero.jpg"
-          srcset="assets/microgreens-hero-sm.jpg 900w, assets/microgreens-hero.jpg 1600w"
+          srcset="assets/microgreens-hero-sm.jpg 900w, assets/microgreens-hero.jpg 1536w"
           sizes="100vw"
           alt=""
-          width="1600"
-          height="1067"
+          width="1536"
+          height="1024"
           fetchpriority="high"
           decoding="async"
         />
@@ -1040,7 +1055,7 @@
     <div class="hero__content">
       <p class="hero__kicker">Выращивание микрозелени</p>
       <h1 class="brand">Агронайзер</h1>
-      <p class="hero__lead">Приложение для микрозелени. Легкость в делах, порядок в увлечениях</p>
+      <p class="hero__lead">Легкость в делах, порядок в увлечениях</p>
       <article class="app-card" id="app">
         <div class="app__head">
           <img class="app__icon" src="/apps/microgreens/icons/Icon-192.png" alt="Микрозелень" width="48" height="48" />
@@ -1049,7 +1064,7 @@
             <h2 class="app__name">Микрозелень</h2>
           </div>
         </div>
-        <p class="app__lead">Выращивание микрозелени дома: база сортов, циклы и напоминания.</p>
+        <p class="app__lead">Выращивание микрозелени: база знаний, простое управление и напоминания.</p>
         <div id="guest-cta">
           <button type="button" class="cta cta--full" id="btn-download">Войти и скачать</button>
           <p class="guest-note">Яндекс ID или VK ID · пароль не нужен</p>
@@ -1064,14 +1079,14 @@
             </a>
             <a class="cta cta--ghost" id="dl-pwa" href="/apps/microgreens/?setup=1&fresh=1">
               <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M16.5 2.1c.9.5 1.7 1.3 2.2 2.2-.1 0-2.1.8-2.1 2.6 0 1.6 1.3 2.2 1.4 2.2-.1.3-.4 1.1-1 1.8-.6.7-1.3 1.6-2.3 1.6s-1.3-.5-2.5-.5-1.6.5-2.5.5-1.6-.8-2.3-1.7c-1.5-1.7-2.6-4.8-1.1-6.9 1-1.4 2.6-2.2 4.1-2.2 1.1 0 2.1.6 2.7.6s1.8-.7 3.1-.6zM12.1 22c-.9 0-1.3-.6-2.4-.6s-1.6.6-2.5.6c-1.7 0-3.8-1.4-5-3.9-2.1-4.3-.5-10.6 2.9-10.6 1 0 1.8.6 2.5.6s1.6-.7 2.8-.7c.5 0 2.2.1 3.3 1.5-2.9 1.6-2.4 5.8.6 6.9-.6 1.6-1.4 3.2-2.2 4.2-.7.9-1.3 1.9-2.2 2z"/></svg>
-              <span class="dl-kicker">Для iOS или Web</span>
+              <span class="dl-kicker">Для любого устройства</span>
               <span>Установить</span>
             </a>
           </div>
           <div id="buy-block">
             <div class="trial-row">
               <span>Сначала попробуйте бесплатно</span>
-              <span class="trial-badge" id="trial-badge">7 дней</span>
+              <span class="trial-badge" id="trial-badge">14 дней</span>
             </div>
             <a class="cta cta--pay" id="btn-pay" href="/pay/microgreens/">Купить доступ · 300 ₽</a>
             <p class="pay-note" id="pay-period-note">Доступ на {{PAID_PERIOD_LABEL}} · оплата через ЮKassa</p>
@@ -1091,7 +1106,7 @@
     <div class="story__inner">
       <div class="story__copy">
         <h2 id="story-title">Выращивание микрозелени дома, без лишней сложности</h2>
-        <p>Агронайзер — приложение для микрозелени. Подсказывает, какой сорт выбрать, когда поливать и когда срезать.</p>
+        <p>Агронайзер — приложение для микрозелени. Подсказывает, какой вид выбрать, когда поливать и когда срезать.</p>
         <div class="benefits">
           <div class="benefit">
             <span class="benefit__mark" aria-hidden="true">
@@ -1099,7 +1114,7 @@
             </span>
             <div>
               <strong>Напоминания вовремя</strong>
-              <span>Полив и срез — когда нужно, а не когда вспомните.</span>
+              <span>Посев и полив — когда нужно, а не когда вспомните.</span>
             </div>
           </div>
           <div class="benefit">
@@ -1107,8 +1122,8 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5h6l2 2h8v12z"/></svg>
             </span>
             <div>
-              <strong>База по сортам</strong>
-              <span>Коротко и по делу: свет, грунт, сроки.</span>
+              <strong>База знаний по видам</strong>
+              <span>Коротко и по делу</span>
             </div>
           </div>
           <div class="benefit">
@@ -1116,8 +1131,8 @@
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3c4 4 6 7 6 10a6 6 0 1 1-12 0c0-3 2-6 6-10z"/></svg>
             </span>
             <div>
-              <strong>Цикл от посева до среза</strong>
-              <span>Весь путь выращивания микрозелени — в одном приложении.</span>
+              <strong>Циклы от посева до среза</strong>
+              <span>Зеленый конвейер - круглый год</span>
             </div>
           </div>
         </div>

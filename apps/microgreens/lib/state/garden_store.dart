@@ -59,6 +59,7 @@ class GardenStore extends ChangeNotifier {
     GrowthStage? stage,
     String? customName,
     int? seedGrams,
+    int trayCount = 1,
   }) async {
     final now = DateTime.now();
     final start = startedAt ?? now;
@@ -79,6 +80,7 @@ class GardenStore extends ChangeNotifier {
       createdAt: now,
       customName: (name != null && name.isNotEmpty) ? name : null,
       seedGrams: seedGrams ?? plant?.seedGrams,
+      trayCount: trayCount,
     );
     _plants.insert(0, garden);
     if (plant != null) {
@@ -147,9 +149,7 @@ class GardenStore extends ChangeNotifier {
     if (plant == null) return null;
 
     if (garden.completesNext(plant)) {
-      // Home harvest reminder: dismiss only; actual harvest is on the garden screen.
-      if (kind == DueActionKind.harvest) return null;
-
+      // Same as «Собрать» on Моя грядка: remove tray (with undo snapshot).
       final snapshot = GardenPlant.fromJson(garden.toJson());
       await harvestPlant(gardenId);
       return ReminderUndo.harvest(snapshot, index);

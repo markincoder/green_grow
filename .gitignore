@@ -41,6 +41,7 @@ app.*.map.json
 # Local helpers
 _db_dump.json
 _inspect_db.py
+/dist/
 
 # Secrets / local deploy
 acme.json

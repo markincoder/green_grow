@@ -49,7 +49,7 @@ class Plant {
   /// Emoji fallback (unused for photos; prefer [defaultPhoto]).
   final String icon;
 
-  /// Culture photos (`…1.jpg`, `…2.jpg`, …). First is the list avatar.
+  /// Culture photos (`…1.jpg`, `…2.jpg`, …). `…2` is the bed icon; carousel uses all.
   final List<String> images;
 
   /// Seed weight range for a 19×11 / 18×13 tray, grams.
@@ -88,8 +88,36 @@ class Plant {
   /// Extra note from the cultivation table.
   final String? feature;
 
-  /// Fallback photo when culture has no numbered assets.
+  /// Fallback photo when culture has no numbered assets (carousel).
   static const defaultPhoto = 'assets/plants/default1.jpg';
+
+  /// Fallback icon on «Моя грядка» when there is no `…2.jpg`.
+  static const defaultBedPhoto = 'assets/plants/nophoto2.jpg';
+
+  /// Avatar for catalog / detail header (first photo, usually `…1.jpg`).
+  String get listAvatar => images.isNotEmpty ? images.first : defaultPhoto;
+
+  /// Icon on «Моя грядка»: prefer `…2.jpg`, else [defaultBedPhoto].
+  String get bedAvatar {
+    for (final path in images) {
+      if (_isNumberedPlantPhoto(path, 2)) return path;
+    }
+    return defaultBedPhoto;
+  }
+
+  /// Photos for the culture detail carousel. Never empty.
+  List<String> get cardPhotos =>
+      images.isNotEmpty ? images : const [defaultPhoto];
+
+  static bool _isNumberedPlantPhoto(String path, int n) {
+    final file = path.split('/').last;
+    final m = RegExp(
+      r'^(.+?)(\d+)\.(jpe?g|png|webp)$',
+      caseSensitive: false,
+    ).firstMatch(file);
+    if (m == null) return false;
+    return int.tryParse(m.group(2)!) == n;
+  }
 
   /// Default seed grams when starting a tray (upper bound, rounded).
   int get seedGrams {
@@ -103,13 +131,6 @@ class Plant {
     if (a == b) return '$a г';
     return '$a–$b г';
   }
-
-  /// Avatar for list / garden tiles.
-  String get listAvatar => images.isNotEmpty ? images.first : defaultPhoto;
-
-  /// Photos for the culture detail carousel. Never empty.
-  List<String> get cardPhotos =>
-      images.isNotEmpty ? images : const [defaultPhoto];
 
   bool get needsSoak => soakHoursMin != null;
 
@@ -339,9 +360,11 @@ class GardenPlant {
     DateTime? createdAt,
     this.customName,
     this.seedGrams,
+    int trayCount = 1,
     this.notes = '',
   })  : stageChangedAt = stageChangedAt ?? startedAt,
-        createdAt = createdAt ?? startedAt;
+        createdAt = createdAt ?? startedAt,
+        trayCount = trayCount < 1 ? 1 : trayCount;
 
   final String id;
   final String plantId;
@@ -353,6 +376,8 @@ class GardenPlant {
   final DateTime createdAt;
   String? customName;
   int? seedGrams;
+  /// How many physical trays this card represents. 1 is hidden in the UI.
+  int trayCount;
   String notes;
 
   /// First stage when starting a new tray.
@@ -595,7 +620,16 @@ class GardenPlant {
 
   String titleWithDate(Plant plant) {
     final date = formatStartDate(startedAt).replaceAll('.', '');
-    return '${displayName(plant)} от $date';
+    final base = '${displayName(plant)} от $date';
+    if (trayCount <= 1) return base;
+    return '$base ($trayCount шт)';
+  }
+
+  /// Start date on its own line under the tray name: `от 28 авг` / `от 28 авг (6 шт)`.
+  String startDateLine() {
+    final date = 'от ${formatStartDate(startedAt).replaceAll('.', '')}';
+    if (trayCount <= 1) return date;
+    return '$date ($trayCount шт)';
   }
 
   /// Stable suffix for matching rows in [PlantingLogService] after renames.
@@ -726,6 +760,7 @@ class GardenPlant {
         'createdAt': createdAt.toIso8601String(),
         if (customName != null) 'customName': customName,
         if (seedGrams != null) 'seedGrams': seedGrams,
+        if (trayCount != 1) 'trayCount': trayCount,
         'notes': notes,
       };
 
@@ -741,6 +776,10 @@ class GardenPlant {
         : GrowthStage.germinate;
     final stageChangedRaw = json['stageChangedAt'] as String?;
     final createdRaw = json['createdAt'] as String?;
+    final rawCount = json['trayCount'];
+    final count = rawCount is int
+        ? rawCount
+        : int.tryParse('$rawCount') ?? 1;
     return GardenPlant(
       id: json['id'] as String,
       plantId: json['plantId'] as String,
@@ -752,6 +791,7 @@ class GardenPlant {
       createdAt: createdRaw != null ? DateTime.parse(createdRaw) : started,
       customName: json['customName'] as String?,
       seedGrams: json['seedGrams'] as int?,
+      trayCount: count,
       notes: json['notes'] as String? ?? '',
     );
   }

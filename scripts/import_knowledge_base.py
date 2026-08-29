@@ -10,9 +10,9 @@ import xlrd
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-KB_DIR = ROOT / "базазнаний 20260828"
-XLS = KB_DIR / "База знаний 20260828.xls"
-IMG_SRC = KB_DIR / "png"
+KB_DIR = ROOT / "базазнаний20260829"
+XLS = KB_DIR / "База знаний 20260829.xls"
+IMG_SRC = KB_DIR / "jpg_final"
 OUT_DART = ROOT / "apps" / "microgreens" / "lib" / "data" / "plants_data.dart"
 OUT_ASSETS = ROOT / "apps" / "microgreens" / "assets" / "plants"
 
@@ -199,10 +199,14 @@ def collect_plant_images(prefix: str) -> list[str]:
     images: list[str] = []
     for n in range(1, 21):
         dest = OUT_ASSETS / f"{prefix}{n}.jpg"
+        src = find_source(prefix, n)
+        if src is not None and src.parent == IMG_SRC:
+            resize_save(src, dest, 900, 900)
+            images.append(f"assets/plants/{prefix}{n}.jpg")
+            continue
         if dest.exists() and dest.stat().st_size > 0:
             images.append(f"assets/plants/{prefix}{n}.jpg")
             continue
-        src = find_source(prefix, n)
         if src is None:
             break
         if src.resolve() == dest.resolve():
@@ -445,7 +449,7 @@ def main() -> None:
     print("Images:", ", ".join(sorted(set(copied))))
     print("Aliases:", aliases)
     for p in plants:
-        print(f"  {p['id']}: {p['name']}")
+        print(f"  {p['id']}: {p['name']}".encode("utf-8", "replace").decode("utf-8"))
 
 
 if __name__ == "__main__":

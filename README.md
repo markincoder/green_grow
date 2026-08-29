@@ -35,7 +35,7 @@
       pay/microgreens/
     platform/
       push/                     # FastAPI: статика + Web Push + OAuth + оплата
-        main.py store.py auth.py access.py
+        main.py store.py auth.py access.py db.py
         .env                    # секреты, не в git
         # data/ на сервере НЕ используется: SQLite/VAPID в томе agronizer_data
     scripts/
@@ -65,10 +65,11 @@ platform/push/
   main.py                        # FastAPI: портал + PWA/APK + /push/ + оплата
   store.py                       # VAPID, подписки, расписание
   auth.py                        # Яндекс / VK вход
-  access.py                      # SQLite кодов доступа
+  access.py                      # коды доступа / оплата
+  db.py                          # SQLite / MySQL подключение
   .env.example                   # шаблон → скопировать в .env
   requirements.txt
-  Dockerfile                     # в образ входят только *.py выше + requirements
+  Dockerfile                     # в образ входят *.py выше + requirements
 scripts/
   apps.ps1                       # реестр и пути
   build_app.ps1                  # сборка одного приложения (APK и/или PWA)
@@ -79,6 +80,7 @@ scripts/
   create_android_keystore.ps1    # один раз: подпись release APK
   patch_pwa_sw.ps1               # внутренняя: SW после flutter build web
   run_local.ps1                  # локальный FastAPI на :3000
+  pack_local_bundle.ps1          # zip для запуска на другом ПК
 ```
 
 ## Бэкенд (FastAPI)
@@ -125,6 +127,20 @@ copy platform\push\.env.example platform\push\.env   # один раз, зате
 Скрипт создаст `platform/push/.venv` при необходимости, поставит зависимости и поднимет uvicorn
 на **http://127.0.0.1:3000/**. `DATA_DIR` и `STATIC_DIR` он задаёт сам (локальные пути),
 даже если в `.env` прописаны контейнерные `/data` и `/var/www`.
+
+### Архив для другого ПК
+
+Собрать zip с порталом, PWA и инструкцией (Flutter на втором ПК не нужен):
+
+```powershell
+.\scripts\pack_local_bundle.ps1
+.\scripts\pack_local_bundle.ps1 -BuildWeb          # сначала пересобрать PWA
+.\scripts\pack_local_bundle.ps1 -OutDir $env:USERPROFILE\Desktop
+```
+
+Архив появится в `dist/agronizer-local-*.zip` (или в `-OutDir`). Внутри — `README-LOCAL.txt`
+и текущий `platform/push/.env` (секреты). Не публикуйте zip. APK по умолчанию не кладётся;
+чтобы включить: `-IncludeApk`.
 
 - http://localhost:3000/ — портал
 - http://localhost:3000/apps/microgreens/ — PWA «Микрозелень»
@@ -230,7 +246,7 @@ Docker-образ собирайте в **корне стека** (`docker compo
 **Не копировать:** Flutter SDK, `apps/*/build`, `platform/push/.venv`, `platform/push/__pycache__`, `platform/push/data/`
 (на сервере данные в томе `agronizer_data`, не в репо), `platform/push/.env` с ПК (если в нём локальные пути/секреты).
 
-Образ Docker копирует только `main.py`, `store.py`, `auth.py`, `access.py`. Новый `.py` файл без правки `Dockerfile` в контейнер не попадёт.
+Образ Docker копирует `main.py`, `store.py`, `auth.py`, `access.py`, `db.py`. Новый `.py` файл без правки `Dockerfile` в контейнер не попадёт.
 
 ```powershell
 # на ПК
@@ -240,11 +256,12 @@ cd c:\cursor\green
 # статика
 scp -r .\site user@SERVER:/path/to/stack/agronizer/
 
-# код FastAPI (все четыре модуля + зависимости + Dockerfile)
+# код FastAPI (модули + зависимости + Dockerfile)
 scp .\platform\push\main.py `
     .\platform\push\store.py `
     .\platform\push\auth.py `
     .\platform\push\access.py `
+    .\platform\push\db.py `
     .\platform\push\requirements.txt `
     .\platform\push\Dockerfile `
     user@SERVER:/path/to/stack/agronizer/platform/push/
@@ -290,7 +307,7 @@ curl -s https://agronizer.ru/api/config
 **Только APK/PWA:** залить новый `agronizer/site/` →  
 `docker compose restart agronizer`
 
-**Код FastAPI** (`main.py`, `store.py`, `auth.py`, `access.py`, `requirements.txt`, `Dockerfile`): залить эти файлы →  
+**Код FastAPI** (`main.py`, `store.py`, `auth.py`, `access.py`, `db.py`, `requirements.txt`, `Dockerfile`): залить эти файлы →  
 `docker compose build agronizer && docker compose up -d agronizer`  
 Том `agronizer_data` при этом не трогается.
 

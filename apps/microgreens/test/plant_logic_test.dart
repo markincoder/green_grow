@@ -20,6 +20,7 @@ void main() {
       'assets/plants/redis3.jpg',
     ]);
     expect(radish.listAvatar, 'assets/plants/redis1.jpg');
+    expect(radish.bedAvatar, 'assets/plants/redis2.jpg');
     expect(
       radish.cardPhotos,
       [
@@ -33,14 +34,21 @@ void main() {
     expect(basil.images, [
       'assets/plants/bazilik1.jpg',
       'assets/plants/bazilik2.jpg',
+      'assets/plants/bazilik3.jpg',
     ]);
+    expect(basil.bedAvatar, 'assets/plants/bazilik2.jpg');
     expect(
       basil.cardPhotos,
-      ['assets/plants/bazilik1.jpg', 'assets/plants/bazilik2.jpg'],
+      [
+        'assets/plants/bazilik1.jpg',
+        'assets/plants/bazilik2.jpg',
+        'assets/plants/bazilik3.jpg',
+      ],
     );
 
     final broccoli = plantById('10004')!;
     expect(broccoli.images, ['assets/plants/brokkoli1.jpg']);
+    expect(broccoli.bedAvatar, Plant.defaultBedPhoto);
     expect(
       broccoli.cardPhotos,
       ['assets/plants/brokkoli1.jpg'],

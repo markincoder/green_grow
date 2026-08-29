@@ -92,8 +92,11 @@ class ContactsScreen extends StatelessWidget {
               builder: (context, snapshot) {
                 final info = snapshot.data;
                 if (info == null) return const SizedBox.shrink();
+                // Show marketing version only (pubspec before `+`), never build.
+                final name = info.version.split('+').first.trim();
+                if (name.isEmpty) return const SizedBox.shrink();
                 return Text(
-                  'Версия ${info.version}',
+                  'Версия $name',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.muted,

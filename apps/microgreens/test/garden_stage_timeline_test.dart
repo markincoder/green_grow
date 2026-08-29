@@ -66,7 +66,7 @@ void main() {
 
     expect(periods, hasLength(3));
     expect(periods[0].stage, GrowthStage.soak);
-    expect(periods[0].durationLabel(now), '4ч');
+    expect(periods[0].durationLabel(now), '4 ч');
     expect(periods[0].rangeLabel(now), '17 авг 8:43-17 авг 12:36');
 
     expect(periods[1].stage, GrowthStage.germinate);
@@ -76,6 +76,17 @@ void main() {
     expect(periods[2].stage, GrowthStage.grow);
     expect(periods[2].end, isNull);
     expect(periods[2].rangeLabel(now), '20 авг-сегодня');
+  });
+
+  test('sub-hour duration is 0 ч; same-day range never uses сегодня', () {
+    final period = GardenStagePeriod(
+      stage: GrowthStage.soak,
+      start: DateTime(2026, 8, 29, 10, 0),
+      end: DateTime(2026, 8, 29, 10, 40),
+    );
+    final now = DateTime(2026, 8, 29, 18, 0);
+    expect(period.durationLabel(now), '0 ч');
+    expect(period.rangeLabel(now), '29 авг 10:00-29 авг 10:40');
   });
 
   test('matches renamed trays by start date suffix', () {

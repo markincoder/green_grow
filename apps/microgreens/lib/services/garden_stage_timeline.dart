@@ -31,10 +31,9 @@ class GardenStagePeriod {
   String durationLabel(DateTime now) {
     final endAt = end ?? now;
     final minutes = endAt.difference(start).inMinutes;
-    if (minutes < 60) return '${minutes.clamp(1, 9999)} мин';
+    if (minutes < 60) return '0 ч';
     final hours = (minutes / 60).round();
-    final sameDay = _sameCalendarDay(start, endAt);
-    if (sameDay && hours < 24) return '$hoursч';
+    if (hours < 24) return '$hours ч';
     final days = (minutes / (60 * 24)).round().clamp(1, 9999);
     return '$days дн';
   }
@@ -43,13 +42,13 @@ class GardenStagePeriod {
     final endAt = end ?? now;
     final endIsToday = end == null && _sameCalendarDay(endAt, now);
     final startDay = _dayLabel(start);
-    final endDay = endIsToday ? 'сегодня' : _dayLabel(endAt);
 
+    // Same day with times: always calendar dates — never «сегодня 8:43».
     if (_sameCalendarDay(start, endAt)) {
       return '$startDay ${_timeLabel(start)}-$startDay ${_timeLabel(endAt)}';
     }
-    if (endIsToday) return '$startDay-$endDay';
-    return '$startDay-$endDay';
+    if (endIsToday) return '$startDay-сегодня';
+    return '$startDay-${_dayLabel(endAt)}';
   }
 
   static String _dayLabel(DateTime d) =>
@@ -187,17 +186,8 @@ Future<List<GardenStagePeriod>> loadGardenStagePeriods({
   DateTime? now,
 }) async {
   final at = now ?? DateTime.now();
-  final file = await PlantingLogService.instance.logFile();
-  if (file == null || !await file.exists()) {
-    return buildGardenStagePeriods(
-      entries: const [],
-      garden: garden,
-      plant: plant,
-      now: at,
-    );
-  }
   try {
-    final text = await file.readAsString();
+    final text = await PlantingLogService.instance.readAllText();
     final entries = text
         .split('\n')
         .map(parsePlantingLogLine)
