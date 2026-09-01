@@ -295,7 +295,7 @@ void main() {
     );
     expect(later, hasLength(1));
     expect(later.single.title, 'Горох от 8 авг');
-    expect(later.single.actionLabel, 'Прошло 8ч - посеять сегодня с 18:00');
+    expect(later.single.actionLabel, 'прошло 8ч - посеять сегодня с 18:00');
 
     expect(
       ReminderService.buildDailyDigestBody(
@@ -336,7 +336,7 @@ void main() {
     );
     expect(items, hasLength(1));
     expect(items.single.title, 'Горох от 17 авг');
-    expect(items.single.actionLabel, 'Прошло 4ч - посеять сегодня с 16:00');
+    expect(items.single.actionLabel, 'прошло 4ч - посеять сегодня с 16:00');
   });
 
   test('soak push time is catalog hours, not the daily reminder clock', () {

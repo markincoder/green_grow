@@ -1,7 +1,7 @@
 name: green_grow
 description: Приложение для выращивания микрозелени дома — база знаний, прогресс роста и напоминания.
 publish_to: "none"
-version: 1.0.16+17
+version: 1.0.16+20
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -11,6 +11,7 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
+  cupertino_icons: ^1.0.8
   flutter_local_notifications: ^18.0.1
   flutter_timezone: ^4.1.0
   google_fonts: ^6.2.1
@@ -45,7 +46,6 @@ flutter_launcher_icons:
 flutter:
   uses-material-design: true
   assets:
-    - assets/icons/radish.png
     - assets/plants/
     - assets/logo_agronizer.png
     - assets/logo_microgreens.png

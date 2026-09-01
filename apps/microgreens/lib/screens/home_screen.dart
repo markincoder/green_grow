@@ -32,6 +32,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final UndoSnackBarHost _undoSnackBar = UndoSnackBarHost();
+
+  @override
+  void dispose() {
+    _undoSnackBar.dispose();
+    super.dispose();
+  }
+
   List<TodayReminderItem> get _reminders {
     final now = DateTime.now();
     final day = DateTime(now.year, now.month, now.day);
@@ -53,31 +61,18 @@ class _HomeScreenState extends State<HomeScreen> {
       await widget.settings.dismissReminder(item.key);
       if (!mounted) return;
 
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.hideCurrentSnackBar();
-      final controller = messenger.showSnackBar(
-        SnackBar(
-          content: Text(item.title),
-          duration: const Duration(seconds: 3),
-          behavior: SnackBarBehavior.floating,
-          dismissDirection: DismissDirection.down,
-          action: SnackBarAction(
-            label: 'Отменить',
-            onPressed: () async {
-              await widget.settings.restoreReminder(item.key);
-              if (undo != null) {
-                await widget.store.undoReminderAction(undo);
-              }
-            },
-          ),
-        ),
-      );
       // Accessibility / some platforms ignore SnackBar.duration when an
-      // action is present — force close after 3s.
-      async.unawaited(
-        Future<void>.delayed(const Duration(seconds: 3), () {
-          controller.close();
-        }),
+      // action is present — force close after 3s (timer cancelled on undo /
+      // next mark so it cannot hide the following snackbar).
+      _undoSnackBar.show(
+        context: context,
+        message: item.title,
+        onUndo: () async {
+          await widget.settings.restoreReminder(item.key);
+          if (undo != null) {
+            await widget.store.undoReminderAction(undo);
+          }
+        },
       );
     } catch (e, st) {
       if (!mounted) return;

@@ -471,15 +471,21 @@ class GardenPlant {
 
   List<GrowthStage> processStages(Plant plant) => plant.processStages;
 
-  /// Readiness from elapsed time since [startedAt], same clock as harvest dates.
+  /// Readiness vs earliest harvest: (minDays − remainingDays) / minDays.
   double progressFor(Plant plant, DateTime now) {
     if (stage == GrowthStage.harvest) return 1;
 
-    final totalHours = plant.cycleDuration.inHours.toDouble();
-    if (totalHours <= 0) return 1;
+    final harvestMin = harvestAtMin(plant, now);
+    final startDay = DateTime(startedAt.year, startedAt.month, startedAt.day);
+    final harvestDay =
+        DateTime(harvestMin.year, harvestMin.month, harvestMin.day);
+    final today = DateTime(now.year, now.month, now.day);
 
-    final elapsedH = now.difference(startedAt).inMinutes / 60.0;
-    return (elapsedH / totalHours).clamp(0.0, 1.0);
+    final totalDays = harvestDay.difference(startDay).inDays;
+    if (totalDays <= 0) return 1;
+
+    final remainingDays = harvestDay.difference(today).inDays;
+    return ((totalDays - remainingDays) / totalDays).clamp(0.0, 1.0);
   }
 
   bool needsWater(Plant plant, DateTime now) {
@@ -522,14 +528,12 @@ class GardenPlant {
 
   /// Status under the title:
   /// `Замачивается. Посеять` /
-  /// `Замачивается. Прошло 4ч - посеять сегодня с 16:00` /
+  /// `Замачивается. Прошло 4ч - Посеять сегодня с 16:00` /
   /// `Прорастает. На свет 16 авг` /
   /// `Растет. Собрать 15 авг. Проверить воду`
   String statusLine(Plant plant, DateTime now) {
     if (stage == GrowthStage.soak) {
-      final action = soakActionLabel(plant, now);
-      if (action == 'посеять') return 'Замачивается. Посеять';
-      return 'Замачивается. $action';
+      return 'Замачивается. ${soakActionLabelForGarden(plant, now)}';
     }
     final verb = stageVerb(plant, now);
     if (stage == GrowthStage.harvest) return verb;
@@ -576,9 +580,11 @@ class GardenPlant {
     return index >= stages.length - 2;
   }
 
-  /// True when the date shown in [statusLine] is today or overdue.
+  /// True when the action in [statusLine] should be highlighted (like reminders).
   bool isStatusActionDueToday(Plant plant, DateTime now) {
     if (stage == GrowthStage.harvest) return true;
+    // Soak always appears in today's reminders — keep the same emphasis.
+    if (stage == GrowthStage.soak) return true;
     if (stage == GrowthStage.grow) {
       return daysUntilHarvestMin(plant, now) <= 0;
     }
@@ -623,6 +629,12 @@ class GardenPlant {
     final base = '${displayName(plant)} от $date';
     if (trayCount <= 1) return base;
     return '$base ($trayCount шт)';
+  }
+
+  /// Log / analytics title: always includes tray count.
+  String analyticsTitle(Plant plant) {
+    final date = formatStartDate(startedAt).replaceAll('.', '');
+    return '${displayName(plant)} от $date ($trayCount шт)';
   }
 
   /// Start date on its own line under the tray name: `от 28 авг` / `от 28 авг (6 шт)`.
@@ -686,7 +698,8 @@ class GardenPlant {
   DateTime soakReminderAt(Plant plant) => ceilToHour(stageChangedAt)
       .add(Duration(hours: plant.soakHoursForTiming));
 
-  /// `Прошло 4ч - посеять сегодня с 16:00`. If sow time is already past: `посеять`.
+  /// Reminder / push copy — always lowercase (`посеять`, `прошло … ч - посеять …`).
+  /// If sow time is already past: `посеять`.
   String soakActionLabel(Plant plant, DateTime now) {
     final due = soakReminderAt(plant);
     if (due.isBefore(now)) return 'посеять';
@@ -694,10 +707,17 @@ class GardenPlant {
     final elapsed =
         now.difference(stageChangedAt).inHours.clamp(0, 9999);
     if (elapsed <= 0) return when;
-    return 'Прошло ${elapsed}ч - $when';
+    return 'прошло ${elapsed}ч - $when';
   }
 
-  /// `посеять сегодня с 16:00`
+  /// Garden / tray status — capitalize «Посеять» (and sentence start «Прошло»).
+  String soakActionLabelForGarden(Plant plant, DateTime now) {
+    final raw = soakActionLabel(plant, now).replaceAll('посеять', 'Посеять');
+    if (raw.isEmpty) return raw;
+    return '${raw[0].toUpperCase()}${raw.substring(1)}';
+  }
+
+  /// `посеять сегодня с 16:00` (reminders — lowercase).
   String soakSowWhenLabel(Plant plant, DateTime now) {
     final due = soakReminderAt(plant);
     final days = _calendarDaysUntil(due, now);

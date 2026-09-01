@@ -10,12 +10,13 @@
  */
 'use strict';
 
-const CACHE = 'microgreens-shell-1.0.16+17-2cc73f66';
+const CACHE = 'microgreens-shell-1.0.16+20-a74d541a';
 const PRECACHE = [
   './',
   './index.html',
   './manifest.json',
   './favicon.png',
+  './favicon.svg',
   './icons/Icon-192.png',
   './icons/Icon-512.png',
 ];
@@ -26,7 +27,6 @@ const PRECACHE_OFFLINE = [
   './assets/AssetManifest.bin.json',
   './assets/assets/app_icon.png',
   './assets/assets/celebrate.json',
-  './assets/assets/icons/radish.png',
   './assets/assets/logo_agronizer.png',
   './assets/assets/logo_agronizer_word.png',
   './assets/assets/logo_microgreens.png',
@@ -95,6 +95,7 @@ const PRECACHE_OFFLINE = [
   './assets/FontManifest.json',
   './assets/fonts/MaterialIcons-Regular.otf',
   './assets/NOTICES',
+  './assets/packages/cupertino_icons/assets/CupertinoIcons.ttf',
   './assets/shaders/ink_sparkle.frag',
   './assets/shaders/stretch_effect.frag',
   './canvaskit/canvaskit.js',

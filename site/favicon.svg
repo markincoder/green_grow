@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Agronizer">
+  <rect width="64" height="64" fill="#1B4332"/>
+  <ellipse cx="32" cy="54.5" rx="15.5" ry="6.2" fill="#3A2414"/>
+  <ellipse cx="32" cy="52.8" rx="12.5" ry="3.8" fill="#2A1810"/>
+
+  <path d="M27.5 50.5 C25.2 40 17.5 32.2 14.8 25.5" fill="none" stroke="#E8F6D6" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M36.5 50.5 C38.8 40 46.5 32.2 49.2 25.5" fill="none" stroke="#E8F6D6" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M32 51.2 V16.5" fill="none" stroke="#E8F6D6" stroke-width="3.7" stroke-linecap="round"/>
+
+  <g fill="#8FDC3C">
+    <g transform="translate(14.6,22.2) rotate(-32)">
+      <ellipse cx="-5.1" cy="0.4" rx="6.4" ry="4.7" transform="rotate(-26)"/>
+      <ellipse cx="5.1" cy="0.4" rx="6.4" ry="4.7" transform="rotate(26)"/>
+    </g>
+    <g transform="translate(32,12.2)">
+      <ellipse cx="-5.6" cy="0.6" rx="7" ry="5.1" transform="rotate(-26)"/>
+      <ellipse cx="5.6" cy="0.6" rx="7" ry="5.1" transform="rotate(26)"/>
+    </g>
+    <g transform="translate(49.4,22.2) rotate(32)">
+      <ellipse cx="-5.1" cy="0.4" rx="6.4" ry="4.7" transform="rotate(-26)"/>
+      <ellipse cx="5.1" cy="0.4" rx="6.4" ry="4.7" transform="rotate(26)"/>
+    </g>
+  </g>
+  <g fill="#F4FFE6" opacity=".55">
+    <ellipse cx="12.4" cy="20.2" rx="1.7" ry="1.1" transform="rotate(-40 12.4 20.2)"/>
+    <ellipse cx="29.4" cy="9.8" rx="1.8" ry="1.15" transform="rotate(-28 29.4 9.8)"/>
+    <ellipse cx="51.6" cy="20.2" rx="1.7" ry="1.1" transform="rotate(40 51.6 20.2)"/>
+  </g>
+</svg>

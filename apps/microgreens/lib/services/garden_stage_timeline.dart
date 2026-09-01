@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../models/plant.dart';
 import 'planting_log_service.dart';
+import 'tray_history_store.dart' show TrayHistoryEvent, trayHistoryLineLabel;
 
 class PlantingLogEntry {
   const PlantingLogEntry({
@@ -97,8 +98,42 @@ PlantingLogEntry? parsePlantingLogLine(String line) {
   );
 }
 
-bool matchesGardenCycle(PlantingLogEntry entry, GardenPlant garden) =>
-    entry.cycleName.endsWith(garden.cycleDateSuffix());
+bool matchesGardenCycle(PlantingLogEntry entry, GardenPlant garden) {
+  final suffix = garden.cycleDateSuffix(); // ` от 29 авг`
+  final name = entry.cycleName;
+  if (name.contains(suffix)) return true;
+  // Legacy rows without leading space variants.
+  return name.contains(suffix.trimLeft());
+}
+
+/// Actions shown in tray «История» from the file log (legacy / analytics).
+const historyLogActions = {
+  'старт',
+  'начать', // legacy
+  'посеять',
+  'раскрыть',
+  'собрать',
+  'удалить',
+};
+
+String historyLineLabel(PlantingLogEntry entry) => trayHistoryLineLabel(
+      TrayHistoryEvent(
+        at: entry.at,
+        action: entry.action,
+        stage: entry.stageOrComment,
+      ),
+    );
+
+List<PlantingLogEntry> filterGardenHistory({
+  required List<PlantingLogEntry> entries,
+  required GardenPlant garden,
+}) {
+  return entries
+      .where((e) => matchesGardenCycle(e, garden))
+      .where((e) => historyLogActions.contains(e.action))
+      .toList()
+    ..sort((a, b) => a.at.compareTo(b.at));
+}
 
 @visibleForTesting
 List<GardenStagePeriod> buildGardenStagePeriods({
@@ -149,7 +184,7 @@ List<GardenStagePeriod> buildGardenStagePeriods({
 
   for (final entry in relevant) {
     final stage = parseLogStageField(entry.stageOrComment);
-    if (entry.action == 'начать') {
+    if (entry.action == 'начать' || entry.action == 'старт') {
       if (stage != null) {
         closeAt(entry.at);
         openStage = stage;
@@ -206,6 +241,22 @@ Future<List<GardenStagePeriod>> loadGardenStagePeriods({
       plant: plant,
       now: at,
     );
+  }
+}
+
+Future<List<PlantingLogEntry>> loadGardenHistory({
+  required GardenPlant garden,
+}) async {
+  try {
+    final text = await PlantingLogService.instance.readAllText();
+    final entries = text
+        .split('\n')
+        .map(parsePlantingLogLine)
+        .whereType<PlantingLogEntry>()
+        .toList();
+    return filterGardenHistory(entries: entries, garden: garden);
+  } catch (_) {
+    return const [];
   }
 }
 

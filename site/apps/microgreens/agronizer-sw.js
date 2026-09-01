@@ -10,12 +10,13 @@
  */
 'use strict';
 
-const CACHE = 'microgreens-shell-v18-offline';
+const CACHE = 'microgreens-shell-v19-offline';
 const PRECACHE = [
   './',
   './index.html',
   './manifest.json',
   './favicon.png',
+  './favicon.svg',
   './icons/Icon-192.png',
   './icons/Icon-512.png',
 ];

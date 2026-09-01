@@ -23,15 +23,15 @@ void main() {
     final at = DateTime(2026, 8, 11, 12, 40);
     await PlantingLogService.instance.append(
       at: at,
-      cycleName: 'Горох от 11 авг',
-      action: 'начать',
+      cycleName: 'Горох от 11 авг (1 шт)',
+      action: 'старт',
       stageOrComment: PlantingLogService.stageField(GrowthStage.soak),
     );
     await PlantingLogService.instance.append(
       at: DateTime(2026, 8, 14, 15, 40),
-      cycleName: 'Горох от 11 авг',
+      cycleName: 'Горох от 11 авг (1 шт)',
       action: 'удалить',
-      stageOrComment: '',
+      stageOrComment: 'старт=11 авг;лотков=1;id=g1',
     );
 
     final file = await PlantingLogService.instance.logFile();
@@ -40,8 +40,8 @@ void main() {
     expect(
       text.trim().split('\n'),
       [
-        '11.08.2026 12:40;Горох от 11 авг;начать;замачивание',
-        '14.08.2026 15:40;Горох от 11 авг;удалить;',
+        '11.08.2026 12:40;Горох от 11 авг (1 шт);старт;замачивание',
+        '14.08.2026 15:40;Горох от 11 авг (1 шт);удалить;старт=11 авг;лотков=1;id=g1',
       ],
     );
   });

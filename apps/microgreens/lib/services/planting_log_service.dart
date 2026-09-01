@@ -92,7 +92,7 @@ class PlantingLogService {
   }
 
   /// One CSV-like row:
-  /// `11.08.2026 12:40;Горох от 11 авг;начать;замачивание`
+  /// `11.08.2026 12:40;Горох от 11 авг (1 шт);старт;замачивание`
   Future<void> append({
     required String cycleName,
     required String action,

@@ -29,33 +29,26 @@ class GardenScreen extends StatefulWidget {
 
 class _GardenScreenState extends State<GardenScreen> {
   _GardenFilter _filter = _GardenFilter.all;
+  final UndoSnackBarHost _undoSnackBar = UndoSnackBarHost();
+
+  @override
+  void dispose() {
+    _undoSnackBar.dispose();
+    super.dispose();
+  }
 
   Future<void> _deletePlant(GardenPlant gardenPlant, Plant plant) async {
     final undo = await widget.store.removePlant(gardenPlant.id);
     if (!mounted) return;
 
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.hideCurrentSnackBar();
-    final controller = messenger.showSnackBar(
-      SnackBar(
-        content: Text(gardenPlant.titleWithDate(plant)),
-        duration: const Duration(seconds: 3),
-        behavior: SnackBarBehavior.floating,
-        dismissDirection: DismissDirection.down,
-        action: SnackBarAction(
-          label: 'Отменить',
-          onPressed: () async {
-            if (undo != null) {
-              await widget.store.undoReminderAction(undo);
-            }
-          },
-        ),
-      ),
-    );
-    async.unawaited(
-      Future<void>.delayed(const Duration(seconds: 3), () {
-        controller.close();
-      }),
+    _undoSnackBar.show(
+      context: context,
+      message: gardenPlant.titleWithDate(plant),
+      onUndo: () async {
+        if (undo != null) {
+          await widget.store.undoReminderAction(undo);
+        }
+      },
     );
   }
 
@@ -118,7 +111,7 @@ class _GardenScreenState extends State<GardenScreen> {
             : plants.isEmpty
                 ? 'Нет активных по выбранному фильтру'
                 : _filter == _GardenFilter.dueToday
-                    ? '${plants.length} · требуют действия сегодня'
+                    ? '${plants.length} · требуют внимания'
                     : '${plants.length} · ${stageLabel(switch (_filter) {
                         _GardenFilter.soak => GrowthStage.soak,
                         _GardenFilter.germinate => GrowthStage.germinate,
@@ -149,7 +142,7 @@ class _GardenScreenState extends State<GardenScreen> {
       _FilterChipData(
         filter: _GardenFilter.dueToday,
         glyph: StageGlyphKind.dueToday,
-        tooltip: 'Требуют действия сегодня',
+        tooltip: 'Требуют внимания',
       ),
     ];
 
@@ -276,14 +269,32 @@ class _GardenScreenState extends State<GardenScreen> {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const TrayGlyph(size: 56),
+                                PlantAvatar(
+                                  icon: plant.bedAvatar,
+                                  size: 56,
+                                ),
                                 const SizedBox(width: 14),
                                 Expanded(
                                   child: TrayTitleBlock(
                                     gardenPlant: gardenPlant,
                                     plant: plant,
+                                    showEditButton: false,
                                     onRename: (name) => widget.store
                                         .updateCustomName(gardenPlant.id, name),
+                                  ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Переименовать',
+                                  onPressed: () => renameTray(
+                                    context,
+                                    gardenPlant: gardenPlant,
+                                    plant: plant,
+                                    onRename: (name) => widget.store
+                                        .updateCustomName(gardenPlant.id, name),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    color: AppColors.muted,
                                   ),
                                 ),
                                 IconButton(

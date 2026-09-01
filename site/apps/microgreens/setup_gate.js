@@ -797,30 +797,30 @@
 
   function confirmStepLead() {
     return (
-      'Статус уведомлений от agronizer.ru: ' +
+      'Статус уведомлений от agronizer.ru: <b>' +
       sitePermLabel() +
-      '<br><br>Сейчас отправим тестовое уведомление от приложения Микрозелень.<br><br>' +
-      'Если увидели — нажмите <b>Вижу уведомление</b>.<br><br>' +
-      'Если не сработало, нажмите <b>Повторить тест</b>.<br><br>' +
-      'Если пара повторов не помогла — пожалуйтесь на agronizer@yandex.ru, ' +
+      '</b><br>Сейчас отправим тестовое уведомление от приложения Микрозелень.<br>' +
+      'Если увидели - нажмите <b>Вижу уведомление</b>.<br>' +
+      'Если не сработало, нажмите <b>Повторить тест</b>.<br>' +
+      'Если пара повторов не помогла - пожалуйтесь на agronizer@yandex.ru, ' +
       'пришлем дополнительную инструкцию по настройке браузера. ' +
-      'А пока можно нажать <b>Пропустить</b> — напоминаний не будет'
+      'А пока можно нажать <b>Пропустить</b> - напоминаний не будет'
     );
   }
 
   function iconStepLeadChromeAfterNotify() {
     return (
-      'Нажмите Установить в Chrome / Добавить на главный экран, затем нажмите Готово.\n\n' +
-      'Если иконка уже есть (вы запустили повторную установку), нажмите Готово.\n\n' +
-      'Если не получилось настроить уведомления в браузере, а напоминания нужны, нажмите Скачать APK для установки обычного Android-приложения'
+      'Нажмите <b>Создать иконку Микрозелень</b>, затем нажмите <b>Готово</b>.<br>' +
+      'Если иконка уже есть (вы запустили повторную установку), нажмите <b>Готово</b>.<br>' +
+      'Если не получилось настроить уведомления в браузере, а напоминания нужны, нажмите <b>Скачать APK</b> для установки обычного Android-приложения'
     );
   }
 
   function iconStepLeadYandexAfterNotify() {
     return (
-      'Нажмите три точки (меню «О сайте») и выберите пункт Добавить ярлык на рабочий стол / Установить как приложение, затем нажмите Готово.\n\n' +
-      'Если иконка уже есть (вы запустили повторную установку), нажмите Готово.\n\n' +
-      'Если не получилось настроить уведомления в браузере, а напоминания нужны, нажмите Скачать APK для установки обычного Android-приложения'
+      'Нажмите три точки (меню «О сайте») и выберите пункт Добавить ярлык на рабочий стол / Установить как приложение, затем нажмите <b>Готово</b>.<br>' +
+      'Если иконка уже есть (вы запустили повторную установку), нажмите <b>Готово</b>.<br>' +
+      'Если не получилось настроить уведомления в браузере, а напоминания нужны, нажмите <b>Скачать APK</b> для установки обычного Android-приложения'
     );
   }
 
@@ -936,6 +936,10 @@
         reloadToRefreshPermission();
         return;
       }
+      if (step === 'notify' && notifGranted()) {
+        maybeAutoVerifyNotify();
+        return;
+      }
       render();
     });
     window.addEventListener('focus', function () {
@@ -943,6 +947,10 @@
       if (refreshPermOnReturn && (step === 'notify' || step === 'confirm')) {
         refreshPermOnReturn = false;
         reloadToRefreshPermission();
+        return;
+      }
+      if (step === 'notify' && notifGranted()) {
+        maybeAutoVerifyNotify();
         return;
       }
       render();
@@ -1075,7 +1083,7 @@
       } else if (isYandex()) {
         if (notifyBeforeIcon()) {
           title.textContent = 'Установка и создание иконки приложения';
-          lead.textContent = iconStepLeadYandexAfterNotify();
+          lead.innerHTML = iconStepLeadYandexAfterNotify();
           steps.hidden = true;
           steps.innerHTML = '';
           btnPrimary.hidden = false;
@@ -1117,15 +1125,15 @@
       } else if (isChromeAndroid()) {
         if (notifyBeforeIcon()) {
           title.textContent = 'Создание иконки приложения';
-          lead.textContent = iconStepLeadChromeAfterNotify();
+          lead.innerHTML = iconStepLeadChromeAfterNotify();
           steps.hidden = true;
           steps.innerHTML = '';
           btnPrimary.hidden = false;
           btnPrimary.textContent = deferredInstallPrompt
             ? 'Создать иконку Микрозелень'
-            : 'Далее — готово';
+            : 'Готово';
           btnSecondary.hidden = !deferredInstallPrompt;
-          btnSecondary.textContent = 'Пропустить';
+          btnSecondary.textContent = 'Готово';
           btnSkip.hidden = false;
           btnSkip.textContent = 'Скачать APK';
           if (!swReadyForInstall) {
@@ -1226,17 +1234,29 @@
         'Для получения напоминаний от приложения нужно разрешить браузеру отправку уведомлений от сайта';
 
       if (notifGranted()) {
+        // Never show the old «это главный шаг» list — it flashed between grant and confirm.
         refreshPermOnReturn = false;
-        steps.hidden = false;
-        steps.innerHTML =
-          '<li>Сайту уже <b>разрешено</b> — это главный шаг</li>' +
-          '<li>Нажмите «Проверить» — подписка и тестовое уведомление на экране</li>' +
-          '<li>Настройки приложения браузера в Android — только если тест пустой при разрешённом сайте</li>';
-        btnPrimary.hidden = true;
-        btnSecondary.hidden = false;
-        btnSecondary.textContent = 'Проверить сайт и отправить тест';
+        title.textContent = 'Тест уведомлений от сайта';
+        lead.innerHTML = confirmStepLead();
+        steps.hidden = true;
+        steps.innerHTML = '';
         btnEnter.hidden = true;
-        setStatus('Шаг 1 OK: сайту разрешено. Проверяем подписку и тест.', 'ok');
+        if (checkInFlight) {
+          btnPrimary.hidden = true;
+          btnSecondary.hidden = true;
+          btnSkip.hidden = true;
+          setStatus(
+            'Разрешение есть — проверяем подписку и отправляем тест…',
+            'ok',
+          );
+        } else {
+          btnPrimary.hidden = true;
+          btnSecondary.hidden = false;
+          btnSecondary.textContent = 'Проверить сайт и отправить тест';
+          btnSkip.hidden = false;
+          btnSkip.textContent = 'Пропустить - напоминаний не будет';
+        }
+        return;
       } else if (notifDenied()) {
         refreshPermOnReturn = true;
         steps.hidden = false;
@@ -1332,8 +1352,11 @@
       } catch (_) {}
     }
     step = 'notify';
-    render();
-    maybeAutoVerifyNotify();
+    if (notifGranted()) {
+      maybeAutoVerifyNotify();
+    } else {
+      render();
+    }
   }
 
   var checkInFlight = false;
@@ -1342,6 +1365,7 @@
   function maybeAutoVerifyNotify() {
     if (step !== 'notify' || !notifGranted() || checkInFlight) return;
     checkInFlight = true;
+    render();
     setStatus('Разрешение есть — проверяем подписку и отправляем тест на экран…', 'ok');
     runVerifyAfterGrant().finally(function () {
       checkInFlight = false;
@@ -1532,6 +1556,8 @@
       checkInFlight = true;
       var btnGranted = el('primary');
       if (btnGranted) btnGranted.disabled = true;
+      render();
+      setStatus('Разрешение есть — проверяем подписку и отправляем тест на экран…', 'ok');
       runVerifyAfterGrant().finally(function () {
         checkInFlight = false;
         var b = el('primary');
@@ -1548,6 +1574,11 @@
     requestSitePermission()
       .then(function (perm) {
         if (perm === 'granted') {
+          render();
+          setStatus(
+            'Разрешение есть — проверяем подписку и отправляем тест на экран…',
+            'ok',
+          );
           return runVerifyAfterGrant();
         }
         if (perm === 'denied') {
@@ -1793,11 +1824,11 @@
       '#agronizer-gate .ag-gate-status.ag-bad{background:rgba(155,34,38,.1);color:#9B2226}' +
       '#agronizer-gate .ag-gate-status.ag-ok{background:rgba(64,145,108,.18);color:#1B4332}' +
       '#agronizer-gate .ag-gate-actions{display:flex;flex-direction:column;gap:8px}' +
-      '#agronizer-gate button{font:600 15px/1.2 system-ui,sans-serif;border:none;border-radius:14px;' +
+      '#agronizer-gate button{font:700 15px/1.2 system-ui,sans-serif;border:none;border-radius:14px;' +
       'padding:14px;cursor:pointer;width:100%}' +
       '#agronizer-gate .ag-gate-primary,#agronizer-gate .ag-gate-enter{background:#1B4332;color:#fff}' +
       '#agronizer-gate .ag-gate-secondary{background:#2D6A4F;color:#fff}' +
-      '#agronizer-gate .ag-gate-skip{background:transparent;color:#5C7268;font-weight:500}' +
+      '#agronizer-gate .ag-gate-skip{background:transparent;color:#1A2E24;font-weight:700}' +
       '#agronizer-gate button:disabled{opacity:.55;cursor:wait}' +
       '#agronizer-gate [hidden]{display:none!important}';
     document.head.appendChild(style);

@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/plants_data.dart';
 import '../models/plant.dart';
 import '../services/planting_log_service.dart';
+import '../services/tray_history_store.dart';
 
 class GardenStore extends ChangeNotifier {
   static const _storageKey = 'garden_plants_v4';
@@ -74,7 +75,9 @@ class GardenStore extends ChangeNotifier {
       id: 'gp-${now.microsecondsSinceEpoch}',
       plantId: plantId,
       startedAt: start,
-      lastWateredAt: now,
+      // Not marked watered today — status / filter show «Проверить воду» on grow.
+      lastWateredAt: DateTime(now.year, now.month, now.day)
+          .subtract(const Duration(days: 1)),
       stage: resolvedStage,
       stageChangedAt: start,
       createdAt: now,
@@ -84,9 +87,14 @@ class GardenStore extends ChangeNotifier {
     );
     _plants.insert(0, garden);
     if (plant != null) {
+      await TrayHistoryStore.instance.recordStart(
+        garden: garden,
+        plant: plant,
+        stage: resolvedStage,
+      );
       await PlantingLogService.instance.append(
-        cycleName: garden.titleWithDate(plant),
-        action: 'начать',
+        cycleName: garden.analyticsTitle(plant),
+        action: 'старт',
         stageOrComment: PlantingLogService.stageField(resolvedStage),
       );
     }
@@ -107,6 +115,11 @@ class GardenStore extends ChangeNotifier {
     if (index < 0) return;
     final trimmed = name.trim();
     _plants[index].customName = trimmed.isEmpty ? null : trimmed;
+    final garden = _plants[index];
+    final plant = plantById(garden.plantId);
+    if (plant != null) {
+      await TrayHistoryStore.instance.syncMetadata(garden: garden, plant: plant);
+    }
     await _persist();
     notifyListeners();
   }
@@ -159,8 +172,14 @@ class GardenStore extends ChangeNotifier {
     final previousStageChangedAt = garden.stageChangedAt;
     final action = garden.nextActionLabel(plant).toLowerCase();
     garden.advanceStage(plant);
+    await TrayHistoryStore.instance.recordAdvance(
+      garden: garden,
+      plant: plant,
+      action: action,
+      stage: garden.stage,
+    );
     await PlantingLogService.instance.append(
-      cycleName: garden.titleWithDate(plant),
+      cycleName: garden.analyticsTitle(plant),
       action: action,
       stageOrComment: PlantingLogService.stageField(garden.stage),
     );
@@ -195,6 +214,7 @@ class GardenStore extends ChangeNotifier {
         if (plant == null) return;
         final index = (undo.insertIndex ?? 0).clamp(0, _plants.length);
         _plants.insert(index, plant);
+        await TrayHistoryStore.instance.undoLastEvent(plant.id);
         await _persist();
         notifyListeners();
         return;
@@ -208,6 +228,7 @@ class GardenStore extends ChangeNotifier {
         if (index < 0) return;
         _plants[index].stage = stage;
         _plants[index].stageChangedAt = changedAt;
+        await TrayHistoryStore.instance.undoLastEvent(id);
         await _persist();
         notifyListeners();
         return;
@@ -227,8 +248,22 @@ class GardenStore extends ChangeNotifier {
     }
     final action = garden.nextActionLabel(plant).toLowerCase();
     garden.advanceStage(plant);
+    if (garden.stage == GrowthStage.grow) {
+      final wateredBaseline = DateTime.now();
+      garden.lastWateredAt = DateTime(
+        wateredBaseline.year,
+        wateredBaseline.month,
+        wateredBaseline.day,
+      ).subtract(const Duration(days: 1));
+    }
+    await TrayHistoryStore.instance.recordAdvance(
+      garden: garden,
+      plant: plant,
+      action: action,
+      stage: garden.stage,
+    );
     await PlantingLogService.instance.append(
-      cycleName: garden.titleWithDate(plant),
+      cycleName: garden.analyticsTitle(plant),
       action: action,
       stageOrComment: PlantingLogService.stageField(garden.stage),
     );
@@ -251,15 +286,24 @@ class GardenStore extends ChangeNotifier {
     final snapshot = GardenPlant.fromJson(garden.toJson());
     final plant = plantById(garden.plantId);
     final cycleName = plant != null
-        ? garden.titleWithDate(plant)
+        ? garden.analyticsTitle(plant)
         : (garden.customName?.trim().isNotEmpty == true
-            ? garden.customName!.trim()
-            : garden.plantId);
+            ? '${garden.customName!.trim()} (${garden.trayCount} шт)'
+            : '${garden.plantId} (${garden.trayCount} шт)');
+    final started = formatStartDate(garden.startedAt).replaceAll('.', '');
+    if (plant != null) {
+      await TrayHistoryStore.instance.recordClose(
+        garden: garden,
+        plant: plant,
+        action: action,
+      );
+    }
     _plants.removeAt(index);
     await PlantingLogService.instance.append(
       cycleName: cycleName,
       action: action,
-      stageOrComment: '',
+      stageOrComment:
+          'старт=$started;лотков=${garden.trayCount};id=${garden.id}',
     );
     await _persist();
     notifyListeners();

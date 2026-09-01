@@ -1,84 +1,50 @@
 import 'package:flutter/material.dart';
 
-import '../models/plant.dart';
-import '../services/garden_stage_timeline.dart' as timeline;
+import '../services/tray_history_store.dart';
 import '../theme/app_theme.dart';
 import 'common_widgets.dart';
-import 'stage_icons.dart';
 
-class GardenStageTimeline extends StatelessWidget {
-  const GardenStageTimeline({
+/// Tray action history from local storage: `20.08.2026 18:20 старт → замачивание`
+class GardenActionHistory extends StatelessWidget {
+  const GardenActionHistory({
     super.key,
-    required this.periods,
-    required this.now,
+    required this.events,
   });
 
-  final List<timeline.GardenStagePeriod> periods;
-  final DateTime now;
+  final List<TrayHistoryEvent> events;
 
   @override
   Widget build(BuildContext context) {
-    if (periods.isEmpty) {
+    if (events.isEmpty) {
       return SoftPanel(
         padding: const EdgeInsets.all(14),
         child: Text(
-          'Этапы появятся после действий с лотком',
+          'История появится после действий с лотком',
           style: Theme.of(context).textTheme.bodyMedium,
         ),
       );
     }
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < periods.length; i++) ...[
+        for (var i = 0; i < events.length; i++) ...[
           SoftPanel(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.mist.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: StageGlyph(
-                    kind: stageGlyphKind(periods[i].stage),
-                    color: AppColors.meadow,
-                    size: 22,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        timeline.gardenStageTitle(periods[i].stage),
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        periods[i].durationLabel(now),
-                        style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                              color: AppColors.forest,
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        periods[i].rangeLabel(now),
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                trayHistoryLineLabel(events[i]),
+                textAlign: TextAlign.left,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.ink,
+                      fontWeight: FontWeight.w600,
+                      height: 1.35,
+                    ),
+              ),
             ),
           ),
-          if (i < periods.length - 1) const SizedBox(height: 10),
+          if (i < events.length - 1) const SizedBox(height: 10),
         ],
       ],
     );

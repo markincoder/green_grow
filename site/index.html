@@ -8,8 +8,22 @@
   <meta name="keywords" content="агронайзер, микрозелень, выращивание микрозелени, приложение для микрозелени" />
   <meta name="theme-color" content="#1b4332" />
   <link rel="canonical" href="https://agronizer.ru/" />
-  <link rel="icon" type="image/png" href="/apps/microgreens/favicon.png" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/apps/microgreens/icons/Icon-192.png" />
+  <!-- Yandex.Metrika counter -->
+  <script type="text/javascript">
+    (function(m,e,t,r,i,k,a){
+        m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
+        m[i].l=1*new Date();
+        for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
+        k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
+    })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=112139843', 'ym');
+
+    ym(112139843, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", referrer: document.referrer, url: location.href, accurateTrackBounce:true, trackLinks:true});
+  </script>
+  <noscript><div><img src="https://mc.yandex.ru/watch/112139843" style="position:absolute; left:-9999px;" alt="" /></div></noscript>
+  <!-- /Yandex.Metrika counter -->
   <meta property="og:type" content="website" />
   <meta property="og:locale" content="ru_RU" />
   <meta property="og:site_name" content="Агронайзер" />
@@ -26,9 +40,16 @@
     rel="preload"
     as="image"
     href="assets/microgreens-hero-sm.webp"
-    imagesrcset="assets/microgreens-hero-sm.webp 900w, assets/microgreens-hero.webp 1536w"
-    imagesizes="100vw"
     type="image/webp"
+    media="(max-width: 767px)"
+    fetchpriority="high"
+  />
+  <link
+    rel="preload"
+    as="image"
+    href="assets/microgreens-hero.webp"
+    type="image/webp"
+    media="(min-width: 768px)"
     fetchpriority="high"
   />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -327,6 +348,9 @@
       padding: 0.7rem 0.45rem 0.75rem;
       font-size: 0.86rem;
       flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
       gap: 0.18rem;
       box-shadow: none;
     }
@@ -338,10 +362,13 @@
     }
 
     .dl-kicker {
+      display: block;
+      width: 100%;
       font-size: 0.66rem;
       font-weight: 600;
       letter-spacing: 0.04em;
       text-transform: uppercase;
+      text-align: center;
       opacity: 0.72;
     }
 
@@ -1035,14 +1062,21 @@
     <div class="hero__media" aria-hidden="true">
       <picture>
         <source
+          media="(max-width: 767px)"
           type="image/webp"
-          srcset="assets/microgreens-hero-sm.webp 900w, assets/microgreens-hero.webp 1536w"
-          sizes="100vw"
+          srcset="assets/microgreens-hero-sm.webp"
+        />
+        <source
+          media="(max-width: 767px)"
+          type="image/jpeg"
+          srcset="assets/microgreens-hero-sm.jpg"
+        />
+        <source
+          type="image/webp"
+          srcset="assets/microgreens-hero.webp"
         />
         <img
           src="assets/microgreens-hero.jpg"
-          srcset="assets/microgreens-hero-sm.jpg 900w, assets/microgreens-hero.jpg 1536w"
-          sizes="100vw"
           alt=""
           width="1536"
           height="1024"
@@ -1141,16 +1175,16 @@
         <picture>
           <source
             type="image/webp"
-            srcset="assets/microgreens-story-sm.webp 900w, assets/microgreens-story.webp 1600w"
+            srcset="assets/microgreens-story-sm.webp 900w, assets/microgreens-story.webp 1024w"
             sizes="(max-width: 900px) 100vw, 42vw"
           />
           <img
             src="assets/microgreens-story.jpg"
-            srcset="assets/microgreens-story-sm.jpg 900w, assets/microgreens-story.jpg 1600w"
+            srcset="assets/microgreens-story-sm.jpg 900w, assets/microgreens-story.jpg 1024w"
             sizes="(max-width: 900px) 100vw, 42vw"
-            alt="Выращивание микрозелени дома в контейнерах на свету"
-            width="1600"
-            height="2133"
+            alt="Выращивание микрозелени дома: приложение на телефоне рядом с урожаем"
+            width="1024"
+            height="1536"
             loading="lazy"
             decoding="async"
           />
@@ -1164,6 +1198,7 @@
     <nav aria-label="Документы">
       <a href="/legal/terms.html">Соглашение</a>
       <a href="/legal/privacy.html">Конфиденциальность</a>
+      <a href="https://t.me/agronizer" target="_blank" rel="noopener noreferrer">Telegram</a>
       <a href="mailto:agronizer@yandex.ru">agronizer@yandex.ru</a>
     </nav>
   </footer>

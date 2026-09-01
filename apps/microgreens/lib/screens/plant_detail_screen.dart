@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/plant.dart';
-import '../services/garden_stage_timeline.dart';
+import '../services/tray_history_store.dart';
 import '../state/favorites_store.dart';
 import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
@@ -30,11 +30,11 @@ class PlantDetailScreen extends StatefulWidget {
 }
 
 class _PlantDetailScreenState extends State<PlantDetailScreen> {
-  String? _stagePeriodsKey;
-  Future<List<GardenStagePeriod>>? _stagePeriodsFuture;
+  String? _historyKey;
+  Future<List<TrayHistoryEvent>>? _historyFuture;
 
-  void _reloadStagePeriods(GardenPlant gp, Plant plant) {
-    _stagePeriodsFuture = loadGardenStagePeriods(garden: gp, plant: plant);
+  void _reloadHistory(GardenPlant gp) {
+    _historyFuture = TrayHistoryStore.instance.eventsFor(gp.id);
   }
 
   Future<void> _start(BuildContext context) async {
@@ -92,35 +92,42 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
         final isTray = gp != null;
 
         if (isTray) {
-          final periodsKey =
-              '${gp.id}|${gp.stage.name}|${gp.stageChangedAt.millisecondsSinceEpoch}';
-          if (_stagePeriodsKey != periodsKey) {
-            _stagePeriodsKey = periodsKey;
-            _reloadStagePeriods(gp, plant);
+          final historyKey =
+              '${gp.id}|${gp.stage.name}|${gp.stageChangedAt.millisecondsSinceEpoch}|${gp.customName}';
+          if (_historyKey != historyKey) {
+            _historyKey = historyKey;
+            _reloadHistory(gp);
           }
         }
 
         return Scaffold(
           backgroundColor: AppColors.canvas,
           appBar: AppBar(
-            title: isTray
-                ? Row(
-                    children: [
-                      TrayGlyph(
-                        size: 34,
-                        onTap: () => _openCultureCard(context),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          plant.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  )
-                : Text(plant.name),
+            title: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    plant.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (isTray) ...[
+                  const SizedBox(width: 2),
+                  IconButton(
+                    tooltip: 'В базе знаний',
+                    onPressed: () => _openCultureCard(context),
+                    visualDensity: VisualDensity.compact,
+                    style: IconButton.styleFrom(
+                      minimumSize: const Size(36, 36),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      padding: const EdgeInsets.all(4),
+                    ),
+                    icon: const Icon(Icons.yard_rounded),
+                  ),
+                ],
+              ],
+            ),
           ),
           body: ListView(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -137,6 +144,7 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                         onRename: (name) =>
                             widget.store.updateCustomName(gp.id, name),
                         titleStyle: Theme.of(context).textTheme.titleLarge,
+                        dateStyle: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -312,13 +320,13 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
               ],
               const SizedBox(height: 24),
               Text(
-                'Этапы',
+                isTray ? 'История' : 'Этапы',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
               const SizedBox(height: 12),
               if (isTray)
-                FutureBuilder<List<GardenStagePeriod>>(
-                  future: _stagePeriodsFuture,
+                FutureBuilder<List<TrayHistoryEvent>>(
+                  future: _historyFuture,
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
                       return const SoftPanel(
@@ -332,9 +340,8 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                         ),
                       );
                     }
-                    return GardenStageTimeline(
-                      periods: snapshot.data ?? const [],
-                      now: now,
+                    return GardenActionHistory(
+                      events: snapshot.data ?? const [],
                     );
                   },
                 )

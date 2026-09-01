@@ -89,6 +89,36 @@ void main() {
     expect(period.rangeLabel(now), '29 авг 10:00-29 авг 10:40');
   });
 
+  test('history line formats action → stage; start is lowercase старт', () {
+    final start = PlantingLogEntry(
+      at: DateTime(2026, 8, 20, 18, 20),
+      cycleName: 'Горох от 20 авг (1 шт)',
+      action: 'старт',
+      stageOrComment: 'замачивание',
+    );
+    expect(
+      historyLineLabel(start),
+      '20.08.2026 18:20 старт → замачивание',
+    );
+    final legacy = PlantingLogEntry(
+      at: DateTime(2026, 8, 21, 8, 5),
+      cycleName: 'Горох от 20 авг (1 шт)',
+      action: 'начать',
+      stageOrComment: 'замачивание',
+    );
+    expect(
+      historyLineLabel(legacy),
+      '21.08.2026 08:05 старт → замачивание',
+    );
+    final remove = PlantingLogEntry(
+      at: DateTime(2026, 8, 24, 17, 47),
+      cycleName: 'Горох от 20 авг (1 шт)',
+      action: 'собрать',
+      stageOrComment: 'старт=20 авг;лотков=1;id=g1',
+    );
+    expect(historyLineLabel(remove), '24.08.2026 17:47 собрать');
+  });
+
   test('matches renamed trays by start date suffix', () {
     final garden = GardenPlant(
       id: 'g1',
@@ -98,11 +128,12 @@ void main() {
       stage: GrowthStage.grow,
       stageChangedAt: DateTime(2026, 8, 20),
       customName: 'Новое имя',
+      trayCount: 2,
     );
     final entry = PlantingLogEntry(
       at: DateTime(2026, 8, 17, 8, 43),
-      cycleName: 'Горох от 17 авг',
-      action: 'начать',
+      cycleName: 'Горох от 17 авг (1 шт)',
+      action: 'старт',
       stageOrComment: 'замачивание',
     );
     expect(matchesGardenCycle(entry, garden), isTrue);

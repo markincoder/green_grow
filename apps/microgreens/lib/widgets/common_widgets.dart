@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -182,7 +184,7 @@ class PlantAvatar extends StatelessWidget {
   }
 }
 
-/// Generic leaf icon (same as knowledge-base tab), for garden tray cards.
+/// Generic leaf icon (same as knowledge-base tab), for places without a photo.
 class TrayGlyph extends StatelessWidget {
   const TrayGlyph({super.key, this.size = 56, this.onTap});
 
@@ -219,7 +221,49 @@ class TrayGlyph extends StatelessWidget {
   }
 }
 
-/// Tray name with pencil edit; start date on the next line. Name wraps, not ellipsized.
+Future<void> renameTray(
+  BuildContext context, {
+  required GardenPlant gardenPlant,
+  required Plant plant,
+  required Future<void> Function(String name) onRename,
+}) async {
+  final controller = TextEditingController(
+    text: gardenPlant.displayName(plant),
+  );
+  final result = await showDialog<String>(
+    context: context,
+    builder: (ctx) {
+      return AlertDialog(
+        title: const Text('Название лотка'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textCapitalization: TextCapitalization.sentences,
+          maxLines: null,
+          decoration: const InputDecoration(
+            hintText: 'Например: Редис Санго, джут',
+          ),
+          onSubmitted: (v) => Navigator.of(ctx).pop(v),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Отмена'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(controller.text),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      );
+    },
+  );
+  controller.dispose();
+  if (result == null) return;
+  await onRename(result);
+}
+
+/// Tray name with optional pencil edit; start date on the next line.
 class TrayTitleBlock extends StatelessWidget {
   const TrayTitleBlock({
     super.key,
@@ -228,6 +272,7 @@ class TrayTitleBlock extends StatelessWidget {
     required this.onRename,
     this.titleStyle,
     this.dateStyle,
+    this.showEditButton = true,
   });
 
   final GardenPlant gardenPlant;
@@ -235,43 +280,14 @@ class TrayTitleBlock extends StatelessWidget {
   final Future<void> Function(String name) onRename;
   final TextStyle? titleStyle;
   final TextStyle? dateStyle;
+  final bool showEditButton;
 
-  Future<void> _edit(BuildContext context) async {
-    final controller = TextEditingController(
-      text: gardenPlant.displayName(plant),
-    );
-    final result = await showDialog<String>(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Название лотка'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            textCapitalization: TextCapitalization.sentences,
-            maxLines: null,
-            decoration: const InputDecoration(
-              hintText: 'Например: Редис Санго, джут',
-            ),
-            onSubmitted: (v) => Navigator.of(ctx).pop(v),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Отмена'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(controller.text),
-              child: const Text('Сохранить'),
-            ),
-          ],
-        );
-      },
-    );
-    controller.dispose();
-    if (result == null) return;
-    await onRename(result);
-  }
+  Future<void> _edit(BuildContext context) => renameTray(
+        context,
+        gardenPlant: gardenPlant,
+        plant: plant,
+        onRename: onRename,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -293,21 +309,15 @@ class TrayTitleBlock extends StatelessWidget {
                 softWrap: true,
               ),
             ),
-            IconButton(
-              tooltip: 'Переименовать',
-              onPressed: () => _edit(context),
-              visualDensity: VisualDensity.compact,
-              style: IconButton.styleFrom(
-                minimumSize: const Size(36, 36),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                padding: const EdgeInsets.all(4),
+            if (showEditButton)
+              IconButton(
+                tooltip: 'Переименовать',
+                onPressed: () => _edit(context),
+                icon: const Icon(
+                  Icons.edit_outlined,
+                  color: AppColors.muted,
+                ),
               ),
-              icon: const Icon(
-                Icons.edit_outlined,
-                size: 18,
-                color: AppColors.muted,
-              ),
-            ),
           ],
         ),
         Text(gardenPlant.startDateLine(), style: date),
@@ -438,6 +448,46 @@ Future<StartTrayResult?> showStartDateSheet({
   );
 }
 
+/// 3s undo snackbar whose auto-close is cancelled on a new show or on undo,
+/// so a second mark is not dismissed by the previous timer.
+class UndoSnackBarHost {
+  Timer? _autoClose;
+
+  void dispose() {
+    _autoClose?.cancel();
+    _autoClose = null;
+  }
+
+  void show({
+    required BuildContext context,
+    required String message,
+    required Future<void> Function() onUndo,
+  }) {
+    _autoClose?.cancel();
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    final controller = messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        dismissDirection: DismissDirection.down,
+        action: SnackBarAction(
+          label: 'Отменить',
+          onPressed: () async {
+            _autoClose?.cancel();
+            _autoClose = null;
+            await onUndo();
+          },
+        ),
+      ),
+    );
+    _autoClose = Timer(const Duration(seconds: 3), () {
+      controller.close();
+    });
+  }
+}
+
 String addedToGardenMessage(String name, DateTime startedAt, {int trayCount = 1}) {
   final date = formatStartDate(startedAt).replaceAll('.', '');
   final base = '$name от $date';
@@ -492,26 +542,40 @@ class _StartDateSheetState extends State<_StartDateSheet> {
   late DateTime _date = DateTime.now();
   late GrowthStage _stage;
   late final TextEditingController _nameController;
-  late final TextEditingController _trayCountController;
+  int _trayCount = 1;
+
+  static const int _trayCountMax = 99;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.plant.name);
-    _trayCountController = TextEditingController(text: '1');
     _stage = GardenPlant.initialStageFor(widget.plant);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-    _trayCountController.dispose();
     super.dispose();
   }
 
-  int get _trayCount {
-    final n = int.tryParse(_trayCountController.text.trim()) ?? 1;
-    return n < 1 ? 1 : n;
+  InputDecoration _fieldDecoration(String labelText) {
+    return InputDecoration(
+      labelText: labelText,
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    );
+  }
+
+  void _changeTrayCount(int delta) {
+    final next = (_trayCount + delta).clamp(1, _trayCountMax);
+    if (next == _trayCount) return;
+    setState(() => _trayCount = next);
   }
 
   DateTime get _resolvedStart {
@@ -694,7 +758,7 @@ class _StartDateSheetState extends State<_StartDateSheet> {
                 controller: _nameController,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: InputDecoration(
-                  labelText: 'Название (напр. сорт)',
+                  labelText: 'Название (например, сорт)',
                   hintText: plant.name,
                   filled: true,
                   fillColor: Colors.white,
@@ -714,51 +778,21 @@ class _StartDateSheetState extends State<_StartDateSheet> {
                       color: Colors.transparent,
                       child: InkWell(
                         onTap: _editDate,
-                        borderRadius: BorderRadius.circular(22),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(22),
-                            border: Border.all(
-                              color: AppColors.mist.withValues(alpha: 0.9),
-                            ),
-                          ),
+                        borderRadius: BorderRadius.circular(16),
+                        child: InputDecorator(
+                          decoration: _fieldDecoration('Дата старта'),
                           child: Row(
                             children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: AppColors.mist.withValues(alpha: 0.65),
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                child: const Icon(
-                                  Icons.calendar_today_rounded,
-                                  color: AppColors.meadow,
-                                  size: 20,
-                                ),
+                              const Icon(
+                                Icons.calendar_today_rounded,
+                                color: AppColors.meadow,
+                                size: 20,
                               ),
                               const SizedBox(width: 10),
                               Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Дата старта',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodyMedium,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      formatStartDate(_date),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium,
-                                    ),
-                                  ],
+                                child: Text(
+                                  formatStartDate(_date),
+                                  style: Theme.of(context).textTheme.titleMedium,
                                 ),
                               ),
                               const Icon(
@@ -775,24 +809,29 @@ class _StartDateSheetState extends State<_StartDateSheet> {
                   const SizedBox(width: 10),
                   Expanded(
                     flex: 2,
-                    child: TextField(
-                      controller: _trayCountController,
-                      keyboardType: TextInputType.number,
-                      textAlign: TextAlign.center,
-                      onChanged: (_) => setState(() {}),
-                      decoration: InputDecoration(
-                        labelText: 'Число лотков',
-                        suffixText: 'шт',
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide.none,
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 18,
-                        ),
+                    child: InputDecorator(
+                      decoration: _fieldDecoration('Число лотков'),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _TrayCountButton(
+                            icon: Icons.remove_rounded,
+                            onPressed: _trayCount > 1
+                                ? () => _changeTrayCount(-1)
+                                : null,
+                          ),
+                          Text(
+                            '$_trayCount',
+                            textAlign: TextAlign.center,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          _TrayCountButton(
+                            icon: Icons.add_rounded,
+                            onPressed: _trayCount < _trayCountMax
+                                ? () => _changeTrayCount(1)
+                                : null,
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -866,11 +905,40 @@ class _StartDateSheetState extends State<_StartDateSheet> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Text('Начать'),
+                child: const Text('Старт'),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _TrayCountButton extends StatelessWidget {
+  const _TrayCountButton({required this.icon, required this.onPressed});
+
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: IconButton(
+        onPressed: onPressed,
+        padding: EdgeInsets.zero,
+        visualDensity: VisualDensity.compact,
+        constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+        style: IconButton.styleFrom(
+          foregroundColor: AppColors.leaf,
+          disabledForegroundColor: AppColors.mist,
+          minimumSize: const Size(24, 24),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          padding: EdgeInsets.zero,
+        ),
+        icon: Icon(icon, size: 20),
       ),
     );
   }
