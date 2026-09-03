@@ -1792,6 +1792,13 @@
 
   function ensureDom() {
     if (root) return root;
+    try {
+      if (typeof window.agronizerDismissPwaUpdate === 'function') {
+        window.agronizerDismissPwaUpdate();
+      }
+    } catch (_) {}
+    var stalePrompt = document.getElementById('agronizer-update-prompt');
+    if (stalePrompt && stalePrompt.parentNode) stalePrompt.remove();
     root = document.createElement('div');
     root.id = 'agronizer-gate';
     root.innerHTML =

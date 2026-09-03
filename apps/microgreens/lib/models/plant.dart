@@ -30,6 +30,8 @@ class Plant {
     this.pressKgMax,
     this.growDaysMin,
     required this.growDays,
+    this.fullCycleDaysMin,
+    this.fullCycleDaysMax,
     required this.light,
     required this.temperature,
     required this.soil,
@@ -40,6 +42,8 @@ class Plant {
     this.storage,
     this.tray,
     this.feature,
+    this.germinateNote = '',
+    this.growNote = '',
   });
 
   final String id;
@@ -74,6 +78,10 @@ class Plant {
   final int? growDaysMin;
   final int growDays;
 
+  /// Full cycle from Excel «Полный цикл, дней». Display only; timing uses stages.
+  final int? fullCycleDaysMin;
+  final int? fullCycleDaysMax;
+
   final String light;
   final String temperature;
   final String soil;
@@ -87,6 +95,12 @@ class Plant {
 
   /// Extra note from the cultivation table.
   final String? feature;
+
+  /// Germination light + press, joined with a period.
+  final String germinateNote;
+
+  /// Grow light + watering, joined with a period.
+  final String growNote;
 
   /// Fallback photo when culture has no numbered assets (carousel).
   static const defaultPhoto = 'assets/plants/default1.jpg';
@@ -166,8 +180,8 @@ class Plant {
   int get daysToHarvestMin => germinateDaysMin + growDaysLow;
 
   String get cycleDaysLabel {
-    final min = daysToHarvestMin;
-    final max = daysToHarvest;
+    final min = fullCycleDaysMin ?? daysToHarvestMin;
+    final max = fullCycleDaysMax ?? daysToHarvest;
     if (min <= 0 && max <= 0) return '—';
     if (min == max) return '$max дн.';
     return '$min–$max дн.';
@@ -539,9 +553,11 @@ class GardenPlant {
     if (stage == GrowthStage.harvest) return verb;
 
     if (stage == GrowthStage.grow) {
-      final when = whenPhrase(daysUntilHarvestMin(plant, now), now);
+      final harvestDays = daysUntilHarvestMin(plant, now);
+      final when = whenPhrase(harvestDays, now);
       var line = '$verb. Собрать $when';
-      if (needsWater(plant, now)) {
+      // Harvest today already asks to pick — skip the water hint.
+      if (harvestDays > 0 && needsWater(plant, now)) {
         line = '$line. Проверить воду';
       }
       return line;

@@ -4,7 +4,7 @@ import '../services/tray_history_store.dart';
 import '../theme/app_theme.dart';
 import 'common_widgets.dart';
 
-/// Tray action history from local storage: `20.08.2026 18:20 старт → замачивание`
+/// Tray action history: date/time on the first line, `действие → этап` on the second.
 class GardenActionHistory extends StatelessWidget {
   const GardenActionHistory({
     super.key,
@@ -30,17 +30,32 @@ class GardenActionHistory extends StatelessWidget {
       children: [
         for (var i = 0; i < events.length; i++) ...[
           SoftPanel(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                trayHistoryLineLabel(events[i]),
-                textAlign: TextAlign.left,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppColors.ink,
-                      fontWeight: FontWeight.w600,
-                      height: 1.35,
-                    ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    formatHistoryStamp(events[i].at),
+                    textAlign: TextAlign.left,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.muted,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    trayHistoryActionLine(events[i]),
+                    textAlign: TextAlign.left,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.ink,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                        ),
+                  ),
+                ],
               ),
             ),
           ),

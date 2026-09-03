@@ -61,9 +61,6 @@ class _HomeScreenState extends State<HomeScreen> {
       await widget.settings.dismissReminder(item.key);
       if (!mounted) return;
 
-      // Accessibility / some platforms ignore SnackBar.duration when an
-      // action is present — force close after 3s (timer cancelled on undo /
-      // next mark so it cannot hide the following snackbar).
       _undoSnackBar.show(
         context: context,
         message: item.title,
@@ -108,8 +105,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         const BrandLogo(),
                         const SizedBox(height: 12),
                         SizedBox(
-                          width: double.infinity,
                           height: 58,
+                          width: double.infinity,
                           child: FilledButton.icon(
                             style: FilledButton.styleFrom(
                               backgroundColor: AppColors.leaf,
@@ -132,10 +129,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'Выберите вид микрозелени и дату старта',
+                          'Выберите вид микрозелени.\nЕсли зелень уже растет, ее тоже можно добавить',
                           textAlign: TextAlign.center,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.bodyMedium,
                         ),
                         const SizedBox(height: 18),

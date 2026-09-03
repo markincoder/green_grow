@@ -289,7 +289,6 @@ class _FilterChip extends StatelessWidget {
       selected: selected,
       onSelected: (_) => onSelected(),
       selectedColor: AppColors.leaf.withValues(alpha: 0.18),
-      checkmarkColor: AppColors.leaf,
       labelStyle: TextStyle(
         color: selected ? AppColors.forest : AppColors.ink,
         fontWeight: FontWeight.w600,

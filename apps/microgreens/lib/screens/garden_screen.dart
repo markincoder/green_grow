@@ -9,6 +9,7 @@ import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/stage_icons.dart';
+import 'harvest_stats_screen.dart';
 import 'plant_detail_screen.dart';
 
 class GardenScreen extends StatefulWidget {
@@ -165,26 +166,35 @@ class _GardenScreenState extends State<GardenScreen> {
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 14),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.leaf,
-                      foregroundColor: Colors.white,
-                      textStyle:
-                          Theme.of(context).textTheme.titleMedium?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SizedBox(
+                        height: 52,
+                        child: FilledButton.icon(
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.leaf,
+                            foregroundColor: Colors.white,
+                            textStyle: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18),
+                            ),
+                          ),
+                          onPressed: widget.onAddPlant,
+                          icon: const Icon(Icons.add_rounded, size: 24),
+                          label: const Text('Выращивать'),
+                        ),
                       ),
                     ),
-                    onPressed: widget.onAddPlant,
-                    icon: const Icon(Icons.add_rounded, size: 24),
-                    label: const Text('Выращивать'),
-                  ),
+                    const SizedBox(width: 10),
+                    const HarvestStatsButton(size: 52),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
@@ -374,28 +384,38 @@ class _StageChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const color = AppColors.forest;
     final isAll = glyph == null;
-    return ChoiceChip(
+    return FilterChip(
       tooltip: tooltip,
-      avatar: isAll
-          ? null
-          : StageGlyph(kind: glyph!, size: 18, color: color),
-      label: Text(
-        isAll ? 'Все' : '$count',
-        style: TextStyle(
-          color: color,
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-        ),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!isAll) ...[
+            StageGlyph(
+              kind: glyph!,
+              size: 18,
+              color: AppColors.forest,
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(isAll ? 'Все' : '$count'),
+        ],
       ),
       selected: selected,
       onSelected: (_) => onSelected(),
-      selectedColor: AppColors.sprout,
+      showCheckmark: false,
+      selectedColor: AppColors.leaf.withValues(alpha: 0.18),
+      labelStyle: TextStyle(
+        color: selected ? AppColors.forest : AppColors.ink,
+        fontWeight: FontWeight.w600,
+      ),
+      side: BorderSide(
+        color: selected
+            ? AppColors.leaf.withValues(alpha: 0.45)
+            : AppColors.mist,
+      ),
       backgroundColor: Colors.white,
-      labelPadding: isAll
-          ? const EdgeInsets.symmetric(horizontal: 4)
-          : const EdgeInsets.only(left: 2, right: 6),
-      avatarBoxConstraints: const BoxConstraints(minWidth: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
 }

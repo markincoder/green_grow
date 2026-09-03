@@ -11,7 +11,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 KB_DIR = ROOT / "базазнаний20260829"
-XLS = KB_DIR / "База знаний 20260829.xls"
+XLS = KB_DIR / "База знаний 20260903.xls"
 IMG_SRC = KB_DIR / "jpg_final"
 OUT_DART = ROOT / "apps" / "microgreens" / "lib" / "data" / "plants_data.dart"
 OUT_ASSETS = ROOT / "apps" / "microgreens" / "assets" / "plants"
@@ -76,7 +76,7 @@ EMOJI = {
 
 def dart_str(s: str) -> str:
     s = (s or "").strip().replace("\r\n", "\n").replace("\r", "\n")
-    s = s.replace("\\", "\\\\").replace("'", "\\'")
+    s = s.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
     return "'" + s + "'"
 
 
@@ -136,14 +136,35 @@ def parse_press(val):
         return "PressKind.none", None, None
     if isinstance(val, (int, float)):
         v = float(val)
+        if v == 0:
+            return "PressKind.none", None, None
         return "PressKind.weight", v, v
-    s = str(val).strip().lower()
-    if "без" in s:
+    s = str(val).strip()
+    sl = s.lower()
+    if "без" in sl:
         return "PressKind.none", None, None
-    if "верхн" in s or "лотк" in s:
+    if "верхн" in sl or "лотк" in sl:
         return "PressKind.upperTray", None, None
-    r = parse_range(val)
-    return "PressKind.weight", r[0], r[1]
+    s_norm = s.replace(",", ".").replace("–", "-").replace("—", "-")
+    m = re.search(r"(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)", s_norm)
+    if m:
+        return "PressKind.weight", float(m.group(1)), float(m.group(2))
+    m = re.search(r"(\d+(?:\.\d+)?)", s_norm)
+    if m:
+        v = float(m.group(1))
+        return "PressKind.weight", v, v
+    return "PressKind.none", None, None
+
+
+def join_dot(*parts) -> str:
+    bits = []
+    for p in parts:
+        t = str(p or "").strip()
+        if not t:
+            continue
+        t = t.replace("\r\n", "\n").replace("\r", "\n").strip().rstrip(".")
+        bits.append(t)
+    return ". ".join(bits)
 
 
 def tags_from(val):
@@ -260,11 +281,21 @@ def main() -> None:
         soak_min, soak_max = hours_from_soak(cell(row, headers, "Замачивание, ч"))
         g_min, g_max = days_to_hours(cell(row, headers, "Проращивание, дней"))
         grow_min, grow_max = days_range(cell(row, headers, "Рост, дней"))
-        press_kind, pmin, pmax = parse_press(cell(row, headers, "Прижим, кг"))
+        cycle_min, cycle_max = days_range(cell(row, headers, "Полный цикл, дней"))
+        press_kind, pmin, pmax = parse_press(
+            cell(row, headers, "Проращивание, прижим", "Прижим, кг")
+        )
+        germinate_note = join_dot(
+            cell(row, headers, "Проращивание, свет"),
+            cell(row, headers, "Проращивание, прижим"),
+        )
+        grow_note = join_dot(
+            cell(row, headers, "Рост, свет"),
+            cell(row, headers, "Рост, полив"),
+        )
 
         tags = tags_from(cell(row, headers, "Для фильтров"))
         desc = str(cell(row, headers, "Описание") or "").strip()
-        benefit = str(cell(row, headers, "Польза") or "").strip() or None
         taste = str(cell(row, headers, "Вкус") or "").strip() or None
         feature = (
             str(cell(row, headers, "Особенности выращивания") or "").strip() or None
@@ -273,7 +304,10 @@ def main() -> None:
         soil = str(cell(row, headers, "Субстрат") or "").strip() or "Кокос"
         light = str(cell(row, headers, "Свет") or "").strip() or "Стандартный свет"
         storage = str(cell(row, headers, "Хранение") or "").strip() or None
-        temperature = format_temperature(cell(row, headers, "Температура"))
+        temperature = join_dot(
+            format_temperature(cell(row, headers, "Температура")),
+            cell(row, headers, "Влажность воздуха", "Влажность"),
+        )
 
         tips = []
         if soak_min is None:
@@ -331,16 +365,19 @@ def main() -> None:
                 "pmax": pmax,
                 "grow_min": grow_min,
                 "grow_max": grow_max,
+                "cycle_min": cycle_min,
+                "cycle_max": cycle_max,
                 "light": light,
                 "temperature": temperature,
                 "soil": soil,
                 "tips": tips,
                 "tags": tags,
-                "benefit": benefit,
                 "taste": taste,
                 "storage": storage,
                 "tray": tray,
                 "feature": feature,
+                "germinate_note": germinate_note,
+                "grow_note": grow_note,
             }
         )
 
@@ -405,6 +442,10 @@ def main() -> None:
         if p["grow_max"] and p["grow_min"] != p["grow_max"]:
             lines.append(f"    growDaysMin: {p['grow_min']},")
         lines.append(f"    growDays: {p['grow_max'] or 0},")
+        if p["cycle_max"]:
+            if p["cycle_min"] != p["cycle_max"]:
+                lines.append(f"    fullCycleDaysMin: {p['cycle_min']},")
+            lines.append(f"    fullCycleDaysMax: {p['cycle_max']},")
         lines.append(f"    light: {dart_str(p['light'])},")
         lines.append(f"    temperature: {dart_str(p['temperature'])},")
         lines.append(f"    soil: {dart_str(p['soil'])},")
@@ -417,8 +458,6 @@ def main() -> None:
             lines.append(f"    tags: [{tags_lit}],")
         else:
             lines.append("    tags: const [],")
-        if p["benefit"]:
-            lines.append(f"    benefit: {dart_str(p['benefit'])},")
         if p["taste"]:
             lines.append(f"    taste: {dart_str(p['taste'])},")
         if p["storage"]:
@@ -427,6 +466,10 @@ def main() -> None:
             lines.append(f"    tray: {dart_str(p['tray'])},")
         if p["feature"]:
             lines.append(f"    feature: {dart_str(p['feature'])},")
+        if p["germinate_note"]:
+            lines.append(f"    germinateNote: {dart_str(p['germinate_note'])},")
+        if p["grow_note"]:
+            lines.append(f"    growNote: {dart_str(p['grow_note'])},")
         lines.append("  ),")
 
     lines.extend(

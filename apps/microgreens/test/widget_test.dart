@@ -24,6 +24,38 @@ void main() {
     expect(find.textContaining('Бесплатный доступ до'), findsOneWidget);
     expect(find.text('Продлить доступ'), findsOneWidget);
     expect(find.text('или введите код активации'), findsNothing);
+    expect(find.byTooltip('Выращено'), findsNothing);
+  });
+
+  testWidgets('opens harvest stats from garden', (tester) async {
+    await tester.pumpWidget(const GreenGrowApp());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Моя грядка'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Выращено'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Выращено'), findsWidgets);
+    expect(find.text('Все'), findsOneWidget);
+    expect(find.text('За неделю'), findsNothing);
+    expect(find.text('За месяц'), findsNothing);
+    expect(find.text('Выбрать...'), findsOneWidget);
+    expect(find.text('От'), findsNothing);
+    expect(
+      find.textContaining('Пока нет собранных лотков'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Выбрать...'));
+    await tester.pumpAndSettle();
+    expect(find.text('От'), findsOneWidget);
+    expect(find.text('До'), findsOneWidget);
+    expect(find.text('начало'), findsOneWidget);
+    expect(find.text('сегодня'), findsOneWidget);
   });
 
   testWidgets('opens activation sheet from trial card', (tester) async {

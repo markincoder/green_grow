@@ -47,6 +47,36 @@ class StageGlyph extends StatelessWidget {
   }
 }
 
+/// Harvest basket for «Выращено».
+class HarvestGlyph extends StatelessWidget {
+  const HarvestGlyph({
+    super.key,
+    this.size = 26,
+  });
+
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ClipOval(
+        child: Transform.scale(
+          scale: 1.42,
+          child: Image.asset(
+            'assets/harvest_basket.png',
+            width: size,
+            height: size,
+            filterQuality: FilterQuality.medium,
+            fit: BoxFit.cover,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _StageGlyphPainter extends CustomPainter {
   const _StageGlyphPainter({required this.kind, required this.color});
 

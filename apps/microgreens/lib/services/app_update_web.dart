@@ -14,6 +14,12 @@ void _showInstallingScreen() {
 /// True when a newer service worker is waiting for SKIP_WAITING.
 Future<bool> hasWaitingWebAppUpdateImpl() async {
   try {
+    if (web.window.sessionStorage.getItem('agronizer_full_setup_v1') == '1') {
+      return false;
+    }
+    if (web.document.getElementById('agronizer-gate') != null) {
+      return false;
+    }
     final dismissed = web.window.sessionStorage.getItem('pwa_update_dismissed');
     if (dismissed != null && dismissed.isNotEmpty) return false;
     final sw = web.window.navigator.serviceWorker;

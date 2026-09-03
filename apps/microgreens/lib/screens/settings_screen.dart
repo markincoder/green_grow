@@ -144,46 +144,6 @@ class SettingsScreen extends StatelessWidget {
                 'Напоминания',
                 style: Theme.of(context).textTheme.titleLarge,
               ),
-              if (kIsWeb) ...[
-                const SizedBox(height: 12),
-                SoftPanel(
-                  onTap: () => WebPushService.showSetup(),
-                  child: Row(
-                    children: [
-                      Icon(
-                        WebPushService.permissionGranted
-                            ? Icons.notifications_active_rounded
-                            : Icons.notifications_outlined,
-                        color: AppColors.meadow,
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Уведомления сайта',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              WebPushService.permissionGranted
-                                  ? 'Разрешены · нажмите, чтобы проверить снова'
-                                  : 'Настроить разрешение в браузере',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.open_in_new_rounded,
-                        color: AppColors.forest,
-                        size: 20,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
               const SizedBox(height: 16),
               SoftPanel(
                 child: SwitchListTile(

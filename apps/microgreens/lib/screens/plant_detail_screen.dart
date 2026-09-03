@@ -6,6 +6,7 @@ import '../state/favorites_store.dart';
 import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/culture_notes_field.dart';
 import '../widgets/favorite_star.dart';
 import '../widgets/garden_stage_timeline.dart';
 
@@ -289,25 +290,9 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                 ),
                 if (plant.taste != null) ...[
                   const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.only(top: 2),
-                        child: Icon(
-                          Icons.restaurant_rounded,
-                          size: 20,
-                          color: AppColors.forest,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          plant.taste!,
-                          style: Theme.of(context).textTheme.bodyLarge,
-                        ),
-                      ),
-                    ],
+                  _IconFactRow(
+                    icon: Icons.restaurant_rounded,
+                    text: plant.taste!,
                   ),
                 ],
                 if (plant.benefit != null) ...[
@@ -317,6 +302,11 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                 ],
+                const SizedBox(height: 12),
+                _IconFactRow(
+                  icon: Icons.schedule,
+                  text: 'Полный цикл выращивания ${plant.cycleDaysLabel}',
+                ),
               ],
               const SizedBox(height: 24),
               Text(
@@ -355,14 +345,15 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    _InfoChip(
-                      icon: Icons.schedule,
-                      label: 'Полный цикл ${plant.cycleDaysLabel}',
-                    ),
+                    if (plant.feature != null)
+                      _InfoChip(
+                        icon: Icons.info_outline_rounded,
+                        label: plant.feature!,
+                      ),
                     _InfoChip(
                       icon: Icons.scale_outlined,
                       label:
-                          '${plant.seedGramsLabel} · Вес семян на лоток 19×11 или 18×13 см',
+                          '${plant.seedGramsLabel}\nВес семян на лоток 18×13 см',
                     ),
                     if (plant.tray != null)
                       _InfoChip(
@@ -373,11 +364,6 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                       glyph: _ConditionGlyph.mat,
                       label: plant.soil,
                     ),
-                    if (plant.feature != null)
-                      _InfoChip(
-                        icon: Icons.info_outline_rounded,
-                        label: plant.feature!,
-                      ),
                     _InfoChip(
                       icon: Icons.wb_sunny_outlined,
                       label: plant.light,
@@ -393,11 +379,47 @@ class _PlantDetailScreenState extends State<PlantDetailScreen> {
                       ),
                   ],
                 ),
+                const SizedBox(height: 24),
+                CultureNotesField(plantId: plant.id),
               ],
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _IconFactRow extends StatelessWidget {
+  const _IconFactRow({
+    required this.icon,
+    required this.text,
+  });
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(
+            icon,
+            size: 20,
+            color: AppColors.forest,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -424,6 +446,7 @@ class _InfoChip extends StatelessWidget {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (glyph != null)
             _ConditionGlyphIcon(kind: glyph!)

@@ -14,6 +14,21 @@
   var lastPingAt = 0;
   var PING_MIN_MS = 5 * 60 * 1000;
 
+  function isPwaSetupActive() {
+    try {
+      if (sessionStorage.getItem('agronizer_full_setup_v1') === '1') return true;
+    } catch (_) {}
+    try {
+      var p = new URLSearchParams(location.search);
+      if (p.get('setup') === '1' || p.get('icon') === '1' || p.get('notify') === '1') {
+        return true;
+      }
+    } catch (_) {}
+    if (location.pathname.indexOf('/gate/') !== -1) return true;
+    if (document.getElementById('agronizer-gate')) return true;
+    return false;
+  }
+
   function scopeUrl() {
     try {
       var base = document.querySelector('base');
@@ -173,6 +188,7 @@
   }
 
   function showPrompt(reg) {
+    if (isPwaSetupActive()) return;
     if (!reg || !reg.waiting) return;
     if (!navigator.serviceWorker.controller) return;
     if (isDismissed(reg)) return;
@@ -301,6 +317,7 @@
 
   function ping(reg, force) {
     if (!reg) return;
+    if (isPwaSetupActive()) return;
     var now = Date.now();
     if (!force && now - lastPingAt < PING_MIN_MS) {
       watch(reg);
@@ -379,6 +396,9 @@
     });
   };
   window.agronizerHasWaitingUpdate = function () {
+    if (isPwaSetupActive()) {
+      return Promise.resolve(false);
+    }
     return navigator.serviceWorker
       .getRegistration(scopeUrl())
       .then(function (reg) {

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:green_grow/models/plant.dart';
 import 'package:green_grow/services/garden_stage_timeline.dart';
+import 'package:green_grow/services/tray_history_store.dart';
 
 void main() {
   test('builds soak, germinate and grow periods from log entries', () {
@@ -117,6 +118,23 @@ void main() {
       stageOrComment: 'старт=20 авг;лотков=1;id=g1',
     );
     expect(historyLineLabel(remove), '24.08.2026 17:47 собрать');
+  });
+
+  test('history action line is date-free for the two-line UI', () {
+    final sow = PlantingLogEntry(
+      at: DateTime(2026, 9, 1, 20, 9),
+      cycleName: 'Горох от 1 сен',
+      action: 'посеять',
+      stageOrComment: 'проращивание',
+    );
+    final event = TrayHistoryEvent(
+      at: sow.at,
+      action: sow.action,
+      stage: sow.stageOrComment,
+    );
+    expect(formatHistoryStamp(event.at), '01.09.2026 20:09');
+    expect(trayHistoryActionLine(event), 'посеять → проращивание');
+    expect(trayHistoryLineLabel(event), '01.09.2026 20:09 посеять → проращивание');
   });
 
   test('matches renamed trays by start date suffix', () {

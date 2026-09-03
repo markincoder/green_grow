@@ -221,6 +221,107 @@ class TrayGlyph extends StatelessWidget {
   }
 }
 
+Future<DateTime?> showAppDateWheel({
+  required BuildContext context,
+  required String title,
+  required DateTime initialDate,
+  required DateTime minimumDate,
+  required DateTime maximumDate,
+}) async {
+  var min = DateTime(minimumDate.year, minimumDate.month, minimumDate.day);
+  var max = DateTime(maximumDate.year, maximumDate.month, maximumDate.day);
+  if (min.isAfter(max)) min = max;
+  var selected = DateTime(initialDate.year, initialDate.month, initialDate.day);
+  if (selected.isBefore(min)) selected = min;
+  if (selected.isAfter(max)) selected = max;
+
+  final confirmed = await showModalBottomSheet<bool>(
+    context: context,
+    backgroundColor: Colors.white,
+    isScrollControlled: true,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (context) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.mist,
+                  borderRadius: BorderRadius.circular(99),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(title, style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Text(
+                'Прокрутите день, месяц и год',
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              SizedBox(
+                height: 180,
+                child: Localizations.override(
+                  context: context,
+                  locale: const Locale('ru'),
+                  child: CupertinoTheme(
+                    data: const CupertinoThemeData(
+                      textTheme: CupertinoTextThemeData(
+                        dateTimePickerTextStyle: TextStyle(
+                          fontSize: 22,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                    ),
+                    child: CupertinoDatePicker(
+                      mode: CupertinoDatePickerMode.date,
+                      dateOrder: DatePickerDateOrder.dmy,
+                      initialDateTime: selected,
+                      minimumDate: min,
+                      maximumDate: max,
+                      onDateTimeChanged: (value) {
+                        selected = DateTime(
+                          value.year,
+                          value.month,
+                          value.day,
+                        );
+                      },
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.leaf,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Text('Готово'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+
+  if (confirmed != true) return null;
+  return selected;
+}
+
 Future<void> renameTray(
   BuildContext context, {
   required GardenPlant gardenPlant,
@@ -345,16 +446,14 @@ class StageTimeline extends StatelessWidget {
         _StageInfo(
           title: 'Проращивание',
           detail: plant.germinateLabel,
-          note: plant.needsPress
-              ? 'В темноте, прижим ${plant.pressLabel}'
-              : plant.pressLabel,
+          note: plant.germinateNote,
           glyph: StageGlyphKind.germinate,
         ),
       if (plant.hasGrowStage)
         _StageInfo(
           title: 'Рост',
           detail: plant.growLabel,
-          note: 'На свету. Нижний полив: проверить уровень воды',
+          note: plant.growNote,
           glyph: StageGlyphKind.grow,
         ),
     ];
@@ -448,14 +547,19 @@ Future<StartTrayResult?> showStartDateSheet({
   );
 }
 
-/// 3s undo snackbar whose auto-close is cancelled on a new show or on undo,
-/// so a second mark is not dismissed by the previous timer.
+/// 3s undo snackbar. A SnackBar with an action defaults to [SnackBar.persist],
+/// so it would stay until tap; we set persist: false and also force-close.
+///
+/// The close timer must survive the screen that showed it: MainShell swaps
+/// tabs with AnimatedSwitcher, and cancelling the timer on dispose left the
+/// bar stuck across routes until the app was killed.
 class UndoSnackBarHost {
   Timer? _autoClose;
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _controller;
+  int _generation = 0;
 
   void dispose() {
-    _autoClose?.cancel();
-    _autoClose = null;
+    // Keep [_autoClose] so the snackbar still hides after a tab switch.
   }
 
   void show({
@@ -464,17 +568,21 @@ class UndoSnackBarHost {
     required Future<void> Function() onUndo,
   }) {
     _autoClose?.cancel();
+    _generation++;
+    final generation = _generation;
     final messenger = ScaffoldMessenger.of(context);
     messenger.hideCurrentSnackBar();
     final controller = messenger.showSnackBar(
       SnackBar(
         content: Text(message),
         duration: const Duration(seconds: 3),
+        persist: false,
         behavior: SnackBarBehavior.floating,
         dismissDirection: DismissDirection.down,
         action: SnackBarAction(
           label: 'Отменить',
           onPressed: () async {
+            if (generation != _generation) return;
             _autoClose?.cancel();
             _autoClose = null;
             await onUndo();
@@ -482,8 +590,18 @@ class UndoSnackBarHost {
         ),
       ),
     );
+    _controller = controller;
     _autoClose = Timer(const Duration(seconds: 3), () {
+      if (generation != _generation) return;
       controller.close();
+    });
+    controller.closed.whenComplete(() {
+      if (generation != _generation) return;
+      _autoClose?.cancel();
+      _autoClose = null;
+      if (identical(_controller, controller)) {
+        _controller = null;
+      }
     });
   }
 }
@@ -644,7 +762,7 @@ class _StartDateSheetState extends State<_StartDateSheet> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Прокрутите день, месяц и год',
+                  'Если уже посеяли - выберите дату посева и этап Проращивание.\nЕсли зелень уже растет - выберите дату переноса лотка на свет и этап Рост.',
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 SizedBox(

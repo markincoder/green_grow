@@ -85,15 +85,19 @@ String formatHistoryStamp(DateTime at) {
   return '$d.$m.${at.year} $h:$min';
 }
 
-/// `20.08.2026 18:20 старт → замачивание`
-String trayHistoryLineLabel(TrayHistoryEvent event) {
+/// `старт → замачивание` / `собрать`
+String trayHistoryActionLine(TrayHistoryEvent event) {
   final action = historyActionLabel(event.action);
   final stage = event.stage.trim();
-  final stamp = formatHistoryStamp(event.at);
   if (stage.isEmpty || action == 'собрать' || action == 'удалить') {
-    return '$stamp $action';
+    return action;
   }
-  return '$stamp $action → $stage';
+  return '$action → $stage';
+}
+
+/// `20.08.2026 18:20 старт → замачивание`
+String trayHistoryLineLabel(TrayHistoryEvent event) {
+  return '${formatHistoryStamp(event.at)} ${trayHistoryActionLine(event)}';
 }
 
 /// Per-tray history in SharedPreferences. [лог_посадок.txt] stays informational.
@@ -143,6 +147,11 @@ class TrayHistoryStore {
     final record = await recordFor(gardenId);
     if (record == null) return const [];
     return List.unmodifiable(record.events);
+  }
+
+  Future<List<TrayHistoryRecord>> allRecords() async {
+    final all = await _loadAll();
+    return List.unmodifiable(all.values);
   }
 
   Future<void> _append({

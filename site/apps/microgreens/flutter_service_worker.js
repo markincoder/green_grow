@@ -10,7 +10,7 @@
  */
 'use strict';
 
-const CACHE = 'microgreens-shell-1.0.16+20-a74d541a';
+const CACHE = 'microgreens-shell-1.0.16+22-0ffe6071';
 const PRECACHE = [
   './',
   './index.html',
@@ -27,6 +27,7 @@ const PRECACHE_OFFLINE = [
   './assets/AssetManifest.bin.json',
   './assets/assets/app_icon.png',
   './assets/assets/celebrate.json',
+  './assets/assets/harvest_basket.png',
   './assets/assets/logo_agronizer.png',
   './assets/assets/logo_agronizer_word.png',
   './assets/assets/logo_microgreens.png',
@@ -54,6 +55,7 @@ const PRECACHE_OFFLINE = [
   './assets/assets/plants/klever2.jpg',
   './assets/assets/plants/klever3.jpg',
   './assets/assets/plants/kolrabi1.jpg',
+  './assets/assets/plants/kolrabi3.jpg',
   './assets/assets/plants/komatsuna1.jpg',
   './assets/assets/plants/kress1.jpg',
   './assets/assets/plants/kress2.jpg',
