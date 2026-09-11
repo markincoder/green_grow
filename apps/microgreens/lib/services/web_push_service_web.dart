@@ -24,13 +24,30 @@ bool get webPushIsSupported {
 }
 
 Future<String> webPushDeviceId() async {
-  final prefs = await SharedPreferences.getInstance();
   const key = 'web_push_device_id';
+  const lsKey = 'agronizer_web_push_device_id';
+  try {
+    final fromLs = web.window.localStorage.getItem(lsKey);
+    if (fromLs != null && fromLs.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(key, fromLs);
+      return fromLs;
+    }
+  } catch (_) {}
+  final prefs = await SharedPreferences.getInstance();
   final existing = prefs.getString(key);
-  if (existing != null && existing.isNotEmpty) return existing;
+  if (existing != null && existing.isNotEmpty) {
+    try {
+      web.window.localStorage.setItem(lsKey, existing);
+    } catch (_) {}
+    return existing;
+  }
   final id =
       'web-${DateTime.now().microsecondsSinceEpoch}-${DateTime.now().millisecondsSinceEpoch}';
   await prefs.setString(key, id);
+  try {
+    web.window.localStorage.setItem(lsKey, id);
+  } catch (_) {}
   return id;
 }
 
@@ -74,15 +91,24 @@ Future<void> webPushUnsubscribe() async {
   } catch (_) {}
 }
 
-Future<void> webPushSyncSchedule(List<dynamic> items) async {
+Future<void> webPushSyncSchedule(
+  List<dynamic> items, {
+  List<String> ackIds = const [],
+}) async {
   if (!webPushIsSupported) return;
   final deviceId = await webPushDeviceId();
   final typed =
       items.whereType<WebPushScheduleItem>().map((e) => e.toJson()).toList();
   final jsItems = typed.jsify();
+  final jsOpts = {'ackIds': ackIds}.jsify();
   Future<void> put() async {
     await _awaitMaybe(
-      _api!.callMethod('syncSchedule'.toJS, deviceId.toJS, jsItems),
+      _api!.callMethod(
+        'syncSchedule'.toJS,
+        deviceId.toJS,
+        jsItems,
+        jsOpts,
+      ),
     );
   }
 

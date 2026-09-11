@@ -563,6 +563,7 @@ class ReminderService {
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final items = <WebPushScheduleItem>[];
+      final ackIds = <String>[];
 
       for (final garden in plants) {
         if (!soakSeparateEnabled) continue;
@@ -574,13 +575,24 @@ class ReminderService {
           DueActionKind.sow,
           today,
         );
-        if (dismissedKeys.contains(key)) continue;
+        if (dismissedKeys.contains(key)) {
+          ackIds.add('soak-${garden.id}');
+          continue;
+        }
         final when = garden.soakReminderAt(plant);
         if (skipMissedPhasePushFor(
           kind: DueActionKind.sow,
           dueAt: when,
           createdAt: garden.createdAt,
         )) {
+          ackIds.add('soak-${garden.id}');
+          continue;
+        }
+        // Never put past-due tray phases on the server — tick would fire a
+        // backlog for trays already revealed/harvested after a delayed sync.
+        if (!shouldUploadWebTrayPhase(when, now)) {
+          // App is open with an overdue soak: suppress push, show on home instead.
+          ackIds.add('soak-${garden.id}');
           continue;
         }
         items.add(
@@ -602,13 +614,21 @@ class ReminderService {
           DueActionKind.toLight,
           today,
         );
-        if (dismissedKeys.contains(key)) continue;
+        if (dismissedKeys.contains(key)) {
+          ackIds.add('germinate-${garden.id}');
+          continue;
+        }
         final when = garden.germinateReminderAt(plant);
         if (skipMissedPhasePushFor(
           kind: DueActionKind.toLight,
           dueAt: when,
           createdAt: garden.createdAt,
         )) {
+          ackIds.add('germinate-${garden.id}');
+          continue;
+        }
+        if (!shouldUploadWebTrayPhase(when, now)) {
+          ackIds.add('germinate-${garden.id}');
           continue;
         }
         final action = DueAction(kind: DueActionKind.toLight, at: when);
@@ -648,8 +668,10 @@ class ReminderService {
         );
       }
 
-      await WebPushService.syncSchedule(items);
-      debugPrint('ReminderService: web push schedule=${items.length}');
+      await WebPushService.syncSchedule(items, ackIds: ackIds);
+      debugPrint(
+        'ReminderService: web push schedule=${items.length} ack=${ackIds.length}',
+      );
     } catch (e, st) {
       debugPrint('ReminderService._syncWebPush failed: $e\n$st');
     }
@@ -830,6 +852,7 @@ class ReminderService {
     debugPrint('ReminderService: soak ${garden.id} at $when (now=$now)');
     await _deliverTrayPush(
       id: id,
+      dedupeKey: trayPhaseDedupeKey(garden.id, DueActionKind.sow),
       body: text,
       when: when,
       now: now,
@@ -847,6 +870,7 @@ class ReminderService {
     final text = garden.pushLine(plant, action);
     await _deliverTrayPush(
       id: id,
+      dedupeKey: trayPhaseDedupeKey(garden.id, DueActionKind.toLight),
       body: text,
       when: when,
       now: now,
@@ -857,11 +881,12 @@ class ReminderService {
   /// If that instant is already now (clock jumped / missed alarm), show once.
   Future<void> _deliverTrayPush({
     required int id,
+    required String dedupeKey,
     required String body,
     required DateTime when,
     required DateTime now,
   }) async {
-    final sent = traySentToken(id);
+    final sent = traySentToken(dedupeKey);
     if (_firedDue.contains(sent)) return;
 
     if (when.isAfter(now)) {
@@ -870,12 +895,12 @@ class ReminderService {
         body: body,
         when: _toTz(when),
       );
-      _firedDue.add(traySchedToken(id, when));
+      _firedDue.add(traySchedToken(dedupeKey, when));
       await _persistFiredDue();
       return;
     }
 
-    final sched = traySchedToken(id, when);
+    final sched = traySchedToken(dedupeKey, when);
     if (_firedDue.contains(sched)) {
       try {
         final pending = await _plugin.pendingNotificationRequests();
@@ -905,13 +930,18 @@ class ReminderService {
     }
   }
 
-  /// Tray push already delivered — id-only so re-sync does not re-notify.
+  /// Stable across app launches (unlike [Object.hash] / notification int ids).
   @visibleForTesting
-  static String traySentToken(int id) => 'tray:$id';
+  static String trayPhaseDedupeKey(String gardenId, DueActionKind kind) =>
+      '${kind.name}:$gardenId';
+
+  /// Tray push already delivered — phase key so re-open does not re-notify.
+  @visibleForTesting
+  static String traySentToken(String dedupeKey) => 'tray:$dedupeKey';
 
   @visibleForTesting
-  static String traySchedToken(int id, DateTime when) =>
-      'sched:$id@${when.millisecondsSinceEpoch}';
+  static String traySchedToken(String dedupeKey, DateTime when) =>
+      'sched:$dedupeKey@${when.millisecondsSinceEpoch}';
 
   /// Web push server: tray phase pushes dedupe by schedule item id only.
   @visibleForTesting
@@ -939,6 +969,12 @@ class ReminderService {
       await prefs.setStringList(_firedPrefsKey, list);
     } catch (_) {}
   }
+
+  /// Web schedule: only future soak/germinate times. Past-due uploads caused
+  /// mass «раскрыть» when the server tick caught up.
+  @visibleForTesting
+  static bool shouldUploadWebTrayPhase(DateTime when, DateTime now) =>
+      when.isAfter(now);
 
   /// True when soak/to-light was already due before the tray was added
   /// (backdated start). Those phases must not send push.
@@ -1045,16 +1081,29 @@ class ReminderService {
   }
 
   /// Tray action alarms: 0x1xxxxxxx. Must not overlap digest ids.
+  /// Uses a stable hash — [Object.hash] changes every app launch and caused
+  /// overdue soak/germinate pushes to reappear on every open.
   @visibleForTesting
   static int notificationIdFor(String gardenId, DueActionKind kind) {
-    return 0x10000000 | (Object.hash(gardenId, kind.index) & 0x0fffffff);
+    return 0x10000000 | (stableStringHash('$gardenId|${kind.index}') & 0x0fffffff);
   }
 
   /// Daily digest alarms: 0x2xxxxxxx.
   @visibleForTesting
   static int digestIdFor(DateTime day) {
     return 0x20000000 |
-        (Object.hash(day.year, day.month, day.day) & 0x0fffffff);
+        (stableStringHash('${day.year}-${day.month}-${day.day}') & 0x0fffffff);
+  }
+
+  /// FNV-1a 32-bit — stable across launches (unlike [Object.hash]).
+  @visibleForTesting
+  static int stableStringHash(String input) {
+    var hash = 0x811c9dc5;
+    for (final unit in input.codeUnits) {
+      hash ^= unit;
+      hash = (hash * 0x01000193) & 0xffffffff;
+    }
+    return hash;
   }
 }
 

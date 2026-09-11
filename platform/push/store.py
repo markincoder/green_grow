@@ -59,6 +59,10 @@ def parse_at_ms(value: str) -> float | None:
 
 
 class Store:
+    # Phase pushes more than this late are dropped (not sent). Stops mass
+    # "раскрыть"/"посеять" for trays already advanced when schedule was stale.
+    _PHASE_LATE_DROP_MS = 5 * 60 * 1000
+
     def __init__(self) -> None:
         self.data_dir = Path(os.environ.get("DATA_DIR") or Path(__file__).resolve().parent / "data")
         self.static_dir = Path(
@@ -166,6 +170,7 @@ class Store:
         now = datetime.now(timezone.utc).timestamp() * 1000
         due: list[tuple[str, dict[str, Any]]] = []
         delivered_changed = False
+        schedules_changed = False
         async with self.lock:
             for device_id, items in list(self.schedules.items()):
                 if not isinstance(items, list):
@@ -182,14 +187,28 @@ class Store:
                         continue
                     if at is None or at > now:
                         keep.append(item)
-                    else:
-                        due.append((device_id, item))
+                        continue
+                    item_id = str(item.get("id") or "")
+                    if (
+                        (item_id.startswith("soak-") or item_id.startswith("germinate-"))
+                        and (now - at) > self._PHASE_LATE_DROP_MS
+                    ):
+                        # Drop without send; mark delivered so a re-upload of the
+                        # same past item cannot fire later.
                         sent.append(key)
                         delivered_changed = True
+                        schedules_changed = True
                         if len(sent) > 300:
                             self.delivered[device_id] = sent[-200:]
+                        continue
+                    due.append((device_id, item))
+                    sent.append(key)
+                    delivered_changed = True
+                    schedules_changed = True
+                    if len(sent) > 300:
+                        self.delivered[device_id] = sent[-200:]
                 self.schedules[device_id] = keep
-            if due:
+            if due or schedules_changed:
                 self.save_schedules()
             if delivered_changed:
                 self.save_delivered()

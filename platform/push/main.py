@@ -17,7 +17,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 import httpx
 
-from store import Store
+from datetime import datetime, timezone
+
+from store import Store, parse_at_ms
 from access import paid_period_label
 from auth import auth_router, pick_email, published_app_info, read_session, request_origin, session_email
 
@@ -185,6 +187,7 @@ async def put_schedule(request: Request):
         return JSONResponse({"error": "invalid json"}, status_code=400)
     device_id = payload.get("deviceId")
     items = payload.get("items")
+    ack_ids = payload.get("ackIds") or []
     if not device_id or not isinstance(device_id, str):
         return JSONResponse({"error": "deviceId required"}, status_code=400)
     store = get_store(request)
@@ -194,20 +197,52 @@ async def put_schedule(request: Request):
         if not isinstance(items, list):
             return JSONResponse({"error": "items array required"}, status_code=400)
         cleaned = []
+        now_ms = datetime.now(timezone.utc).timestamp() * 1000
+        sent = store.delivered.get(device_id)
+        if not isinstance(sent, list):
+            sent = []
+            store.delivered[device_id] = sent
+        delivered_changed = False
+
+        def ack(key: str) -> None:
+            nonlocal delivered_changed
+            if key and key not in sent:
+                sent.append(key)
+                delivered_changed = True
+
+        if isinstance(ack_ids, list):
+            for raw in ack_ids:
+                item_id = str(raw or "")
+                if item_id.startswith("soak-") or item_id.startswith("germinate-"):
+                    ack(item_id)
+
         for item in items:
             if not item or not item.get("id") or not item.get("at") or not item.get("body"):
                 continue
+            item_id = str(item["id"])
+            at_raw = str(item["at"])
+            # Drop already-due tray phase pushes — clients should only schedule future
+            # soak/germinate; past items caused mass "раскрыть"/"посеять" loops.
+            if item_id.startswith("soak-") or item_id.startswith("germinate-"):
+                at_ms = parse_at_ms(at_raw)
+                if at_ms is None or at_ms <= now_ms:
+                    ack(item_id)
+                    continue
             cleaned.append(
                 {
-                    "id": str(item["id"]),
-                    "at": str(item["at"]),
+                    "id": item_id,
+                    "at": at_raw,
                     "title": str(item.get("title") or "Агронайзер"),
                     "body": str(item["body"]),
                     "url": str(item["url"]) if item.get("url") else store.default_app_url,
                 }
             )
+        if len(sent) > 300:
+            store.delivered[device_id] = sent[-200:]
         store.schedules[device_id] = cleaned
         store.save_schedules()
+        if delivered_changed:
+            store.save_delivered()
         count = len(cleaned)
     return {"ok": True, "count": count}
 

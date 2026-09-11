@@ -2,31 +2,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/plants_data.dart';
 
-/// Saved stage filter on «Моя грядка».
-class GardenFilterPrefs {
-  GardenFilterPrefs._();
-
-  static SharedPreferences? prefsOverride;
-
-  static const _key = 'garden_screen_filter_v1';
-
-  static Future<SharedPreferences> _prefs() async =>
-      prefsOverride ?? SharedPreferences.getInstance();
-
-  /// Returns a [GardenFilter] name (`all`, `soak`, …) or `all` if missing/invalid.
-  static Future<String> loadName({
-    required Iterable<String> allowed,
-  }) async {
-    final raw = (await _prefs()).getString(_key);
-    if (raw != null && allowed.contains(raw)) return raw;
-    return 'all';
-  }
-
-  static Future<void> saveName(String name) async {
-    await (await _prefs()).setString(_key, name);
-  }
-}
-
 /// Saved chip on «База знаний»: `all`, `favorites`, or a catalog tag.
 class CatalogFilterPrefs {
   CatalogFilterPrefs._();

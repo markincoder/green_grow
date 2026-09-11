@@ -1,7 +1,7 @@
 name: green_grow
 description: Приложение для выращивания микрозелени дома — база знаний, прогресс роста и напоминания.
 publish_to: "none"
-version: 1.0.17+24
+version: 1.0.18+24
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -24,6 +24,9 @@ dependencies:
   package_info_plus: ^10.2.1
   path_provider: ^2.1.6
   web: ^1.1.0
+  image_picker: ^1.2.3
+  share_plus: ^13.3.0
+  idb_shim: ^2.9.9
 
 dev_dependencies:
   flutter_test:

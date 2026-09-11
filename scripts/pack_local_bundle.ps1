@@ -126,4 +126,13 @@ Remove-Item -Recurse -Force $stage
 $sizeMb = [math]::Round((Get-Item $zipPath).Length / 1MB, 1)
 Write-Host ""
 Write-Host "Ready: $zipPath ($sizeMb MB)"
+
+$yandexDir = "C:\Users\Sergey\Documents\Yandex.Disk\agronizer"
+if (-not (Test-Path $yandexDir)) {
+  New-Item -ItemType Directory -Path $yandexDir -Force | Out-Null
+}
+$yandexZip = Join-Path $yandexDir (Split-Path $zipPath -Leaf)
+Copy-Item -Path $zipPath -Destination $yandexZip -Force
+Write-Host "Copied: $yandexZip"
+
 Write-Host "Give this zip to the other PC; open README-LOCAL.txt inside."

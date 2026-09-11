@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../data/plants_data.dart';
 import '../models/plant.dart';
-import '../services/ui_filter_prefs.dart';
 import '../state/favorites_store.dart';
 import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
@@ -33,25 +32,9 @@ class _GardenScreenState extends State<GardenScreen> {
   _GardenFilter _filter = _GardenFilter.all;
   final UndoSnackBarHost _undoSnackBar = UndoSnackBarHost();
 
-  @override
-  void initState() {
-    super.initState();
-    _restoreFilter();
-  }
-
-  Future<void> _restoreFilter() async {
-    final name = await GardenFilterPrefs.loadName(
-      allowed: _GardenFilter.values.map((f) => f.name),
-    );
-    final match = _GardenFilter.values.where((f) => f.name == name);
-    if (!mounted || match.isEmpty) return;
-    setState(() => _filter = match.first);
-  }
-
-  Future<void> _selectFilter(_GardenFilter filter) async {
+  void _selectFilter(_GardenFilter filter) {
     if (_filter == filter) return;
     setState(() => _filter = filter);
-    await GardenFilterPrefs.saveName(filter.name);
   }
 
   @override

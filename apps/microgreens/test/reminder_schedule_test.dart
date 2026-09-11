@@ -634,6 +634,31 @@ void main() {
     expect(body, isNot(contains('раскрыть')));
   });
 
+  test('web schedule skips past-due soak/germinate tray phases', () {
+    final now = DateTime(2026, 9, 5, 12, 0);
+    expect(
+      ReminderService.shouldUploadWebTrayPhase(
+        DateTime(2026, 9, 5, 12, 1),
+        now,
+      ),
+      isTrue,
+    );
+    expect(
+      ReminderService.shouldUploadWebTrayPhase(
+        DateTime(2026, 9, 5, 12, 0),
+        now,
+      ),
+      isFalse,
+    );
+    expect(
+      ReminderService.shouldUploadWebTrayPhase(
+        DateTime(2026, 8, 28, 9, 0),
+        now,
+      ),
+      isFalse,
+    );
+  });
+
   test('web tray delivery key is id-only for soak and germinate', () {
     expect(
       ReminderService.webTrayDeliveryKey(
@@ -658,14 +683,28 @@ void main() {
     );
   });
 
-  test('tray sent token is stable per notification id', () {
-    final id = ReminderService.notificationIdFor('g-pea', DueActionKind.sow);
-    expect(ReminderService.traySentToken(id), ReminderService.traySentToken(id));
+  test('tray sent token is stable per garden phase', () {
+    final soak = ReminderService.trayPhaseDedupeKey('g-pea', DueActionKind.sow);
+    final light =
+        ReminderService.trayPhaseDedupeKey('g-pea', DueActionKind.toLight);
+    expect(ReminderService.traySentToken(soak), ReminderService.traySentToken(soak));
     expect(
-      ReminderService.traySentToken(id),
-      isNot(ReminderService.traySentToken(
-        ReminderService.notificationIdFor('g-pea', DueActionKind.toLight),
-      )),
+      ReminderService.traySentToken(soak),
+      isNot(ReminderService.traySentToken(light)),
+    );
+  });
+
+  test('notification ids are stable across repeated calls', () {
+    final a = ReminderService.notificationIdFor('g-pea', DueActionKind.sow);
+    final b = ReminderService.notificationIdFor('g-pea', DueActionKind.sow);
+    expect(a, b);
+    expect(
+      a,
+      isNot(ReminderService.notificationIdFor('g-pea', DueActionKind.toLight)),
+    );
+    expect(
+      ReminderService.stableStringHash('g-pea|0'),
+      ReminderService.stableStringHash('g-pea|0'),
     );
   });
 

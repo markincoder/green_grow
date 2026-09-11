@@ -6,7 +6,10 @@ Future<bool> webPushEnsureSubscribed() async => false;
 
 Future<void> webPushUnsubscribe() async {}
 
-Future<void> webPushSyncSchedule(List<dynamic> items) async {}
+Future<void> webPushSyncSchedule(
+  List<dynamic> items, {
+  List<String> ackIds = const [],
+}) async {}
 
 void webPushShowSetup() {}
 

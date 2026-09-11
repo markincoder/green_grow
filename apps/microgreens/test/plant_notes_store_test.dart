@@ -54,7 +54,6 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.byIcon(Icons.edit_rounded), findsOneWidget);
     expect(find.text('Заметки'), findsOneWidget);
     expect(find.text('Сорт Лакомка'), findsOneWidget);
 

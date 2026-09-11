@@ -70,5 +70,11 @@
 	<true/>
 	<key>LSSupportsOpeningDocumentsInPlace</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Камера нужна, чтобы фотографировать посевы для заметок в базе знаний.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Доступ к галерее нужен, чтобы добавить фото к заметкам о культурах.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Сохранение фото заметок в галерею при необходимости.</string>
 </dict>
 </plist>

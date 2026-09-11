@@ -12,8 +12,13 @@ abstract final class WebPushService {
   static Future<void> unsubscribe() => webPushUnsubscribe();
 
   /// Replace server-side schedule for this browser.
-  static Future<void> syncSchedule(List<WebPushScheduleItem> items) =>
-      webPushSyncSchedule(items);
+  /// [ackIds] marks soak-/germinate- items delivered without sending (overdue
+  /// while the app is open).
+  static Future<void> syncSchedule(
+    List<WebPushScheduleItem> items, {
+    List<String> ackIds = const [],
+  }) =>
+      webPushSyncSchedule(items, ackIds: ackIds);
 
   /// Show install + notifications onboarding overlay (web only).
   static void showSetup() => webPushShowSetup();
