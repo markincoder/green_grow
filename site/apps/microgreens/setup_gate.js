@@ -38,6 +38,8 @@
   /** Debounce apps→gate navigation (WebAPK often re-fires and opens gate twice). */
   var GATE_NAV_TS_KEY = 'agronizer_gate_nav_ts';
   var APP_PATH = '/apps/microgreens/';
+  var RUSTORE_URL =
+    'https://www.rustore.ru/catalog/app/com.agronizer.greengrow';
   var GATE_PATH = '/gate/microgreens/';
 
   function appSlug() {
@@ -812,7 +814,7 @@
     return (
       'Нажмите <b>Создать иконку Микрозелень</b>, затем нажмите <b>Готово</b>.<br>' +
       'Если иконка уже есть (вы запустили повторную установку), нажмите <b>Готово</b>.<br>' +
-      'Если не получилось настроить уведомления в браузере, а напоминания нужны, нажмите <b>Скачать APK</b> для установки обычного Android-приложения'
+      'Если не получилось настроить уведомления в браузере, а напоминания нужны, нажмите <b>RuStore</b> для установки приложения из магазина'
     );
   }
 
@@ -820,7 +822,7 @@
     return (
       'Нажмите три точки (меню «О сайте») и выберите пункт Добавить ярлык на рабочий стол / Установить как приложение, затем нажмите <b>Готово</b>.<br>' +
       'Если иконка уже есть (вы запустили повторную установку), нажмите <b>Готово</b>.<br>' +
-      'Если не получилось настроить уведомления в браузере, а напоминания нужны, нажмите <b>Скачать APK</b> для установки обычного Android-приложения'
+      'Если не получилось настроить уведомления в браузере, а напоминания нужны, нажмите <b>RuStore</b> для установки приложения из магазина'
     );
   }
 
@@ -1090,7 +1092,7 @@
           btnPrimary.textContent = 'Готово';
           btnSecondary.hidden = true;
           btnSkip.hidden = false;
-          btnSkip.textContent = 'Скачать APK';
+          btnSkip.textContent = 'RuStore';
           setStatus('');
         } else {
           lead.textContent =
@@ -1135,7 +1137,7 @@
           btnSecondary.hidden = !deferredInstallPrompt;
           btnSecondary.textContent = 'Готово';
           btnSkip.hidden = false;
-          btnSkip.textContent = 'Скачать APK';
+          btnSkip.textContent = 'RuStore';
           if (!swReadyForInstall) {
             setStatus('Готовим Service Worker для Chrome… подождите 2–3 сек.', 'ok');
           } else {
@@ -1158,7 +1160,7 @@
           btnSecondary.hidden = !deferredInstallPrompt;
           btnSecondary.textContent = 'Далее — иконка уже есть';
           btnSkip.hidden = false;
-          btnSkip.textContent = 'Скачать APK вместо PWA';
+          btnSkip.textContent = 'RuStore вместо PWA';
           if (!swReadyForInstall) {
             setStatus('Готовим Service Worker для Chrome… подождите 2–3 сек.', 'ok');
           } else if (deferredInstallPrompt) {
@@ -1717,13 +1719,13 @@
   function onSkip() {
     if (step === 'icon') {
       var skipEl = el('skip');
-      var skipApk =
+      var skipStore =
         skipEl &&
         !skipEl.hidden &&
-        skipEl.textContent.indexOf('APK') >= 0;
-      if (skipApk && (isChromeAndroid() || isYandex())) {
+        skipEl.textContent.indexOf('RuStore') >= 0;
+      if (skipStore && (isChromeAndroid() || isYandex())) {
         reportDownload('apk');
-        location.href = APP_PATH + 'microgreens.apk';
+        location.href = RUSTORE_URL;
         return;
       }
       // Android notify-first: icon already exists / skip → finish, do not re-open notify.

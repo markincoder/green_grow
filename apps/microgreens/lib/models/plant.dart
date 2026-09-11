@@ -542,7 +542,8 @@ class GardenPlant {
 
   /// Status under the title:
   /// `Замачивается. Посеять` /
-  /// `Замачивается. Прошло 4ч - Посеять сегодня с 16:00` /
+  /// `Замачивается. Прошло 4ч - посеять сегодня с 16:00` /
+  /// `Замачивается. Прошел 1ч - посеять сегодня с 16:00` /
   /// `Прорастает. На свет 16 авг` /
   /// `Растет. Собрать 15 авг. Проверить воду`
   String statusLine(Plant plant, DateTime now) {
@@ -715,6 +716,7 @@ class GardenPlant {
       .add(Duration(hours: plant.soakHoursForTiming));
 
   /// Reminder / push copy — always lowercase (`посеять`, `прошло … ч - посеять …`).
+  /// For exactly 1 hour: `прошел 1ч - …` (singular).
   /// If sow time is already past: `посеять`.
   String soakActionLabel(Plant plant, DateTime now) {
     final due = soakReminderAt(plant);
@@ -723,12 +725,14 @@ class GardenPlant {
     final elapsed =
         now.difference(stageChangedAt).inHours.clamp(0, 9999);
     if (elapsed <= 0) return when;
-    return 'прошло ${elapsed}ч - $when';
+    final elapsedWord = elapsed == 1 ? 'прошел' : 'прошло';
+    return '$elapsedWord ${elapsed}ч - $when';
   }
 
-  /// Garden / tray status — capitalize «Посеять» (and sentence start «Прошло»).
+  /// Garden / tray status — capitalize sentence start («Прошло»/«Прошел»/«Посеять»).
+  /// After a hyphen keep «посеять» lowercase.
   String soakActionLabelForGarden(Plant plant, DateTime now) {
-    final raw = soakActionLabel(plant, now).replaceAll('посеять', 'Посеять');
+    final raw = soakActionLabel(plant, now);
     if (raw.isEmpty) return raw;
     return '${raw[0].toUpperCase()}${raw.substring(1)}';
   }

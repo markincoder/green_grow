@@ -59,5 +59,11 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="http"/>
         </intent>
+        <!-- Open RuStore app via deeplink when installed (Android 11+ visibility). -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="rustore"/>
+        </intent>
+        <package android:name="ru.vk.store"/>
     </queries>
 </manifest>

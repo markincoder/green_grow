@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/plants_data.dart';
 import '../models/plant.dart';
+import '../services/ui_filter_prefs.dart';
 import '../state/favorites_store.dart';
 import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
@@ -31,6 +32,53 @@ class _CatalogScreenState extends State<CatalogScreen> {
   String _query = '';
   String? _tag;
   bool _favoritesOnly = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreFilter();
+  }
+
+  Future<void> _restoreFilter() async {
+    final saved = await CatalogFilterPrefs.load();
+    if (!mounted) return;
+    setState(() {
+      if (saved == CatalogFilterPrefs.favorites) {
+        _favoritesOnly = true;
+        _tag = null;
+      } else if (saved == CatalogFilterPrefs.all) {
+        _favoritesOnly = false;
+        _tag = null;
+      } else {
+        _favoritesOnly = false;
+        _tag = saved;
+      }
+    });
+  }
+
+  Future<void> _selectAll() async {
+    setState(() {
+      _favoritesOnly = false;
+      _tag = null;
+    });
+    await CatalogFilterPrefs.save(CatalogFilterPrefs.all);
+  }
+
+  Future<void> _selectFavorites() async {
+    setState(() {
+      _favoritesOnly = true;
+      _tag = null;
+    });
+    await CatalogFilterPrefs.save(CatalogFilterPrefs.favorites);
+  }
+
+  Future<void> _selectTag(String tag) async {
+    setState(() {
+      _favoritesOnly = false;
+      _tag = tag;
+    });
+    await CatalogFilterPrefs.save(tag);
+  }
 
   List<Plant> get _filtered {
     final q = _query.trim().toLowerCase();
@@ -71,7 +119,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Выберите культуру для выращивания',
+                      'Выберите вид микрозелени.\nЕсли зелень уже растет, ее тоже можно добавить',
                       style: Theme.of(context).textTheme.bodyMedium,
                     ),
                     const SizedBox(height: 16),
@@ -100,29 +148,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
                             return _FilterChip(
                               label: 'все',
                               selected: !_favoritesOnly && _tag == null,
-                              onSelected: () => setState(() {
-                                _favoritesOnly = false;
-                                _tag = null;
-                              }),
+                              onSelected: _selectAll,
                             );
                           }
                           if (index == 1) {
                             return _FavoriteFilterChip(
                               selected: _favoritesOnly,
-                              onSelected: () => setState(() {
-                                _favoritesOnly = true;
-                                _tag = null;
-                              }),
+                              onSelected: _selectFavorites,
                             );
                           }
                           final tag = catalogFilterTags[index - 2];
                           return _FilterChip(
                             label: tag,
                             selected: !_favoritesOnly && _tag == tag,
-                            onSelected: () => setState(() {
-                              _favoritesOnly = false;
-                              _tag = tag;
-                            }),
+                            onSelected: () => _selectTag(tag),
                           );
                         },
                       ),

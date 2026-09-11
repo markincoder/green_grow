@@ -1,46 +1,51 @@
 import 'package:flutter/material.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../services/app_version.dart';
+import '../state/access_store.dart';
 import '../theme/app_theme.dart';
+import '../widgets/activation_code_form.dart';
 import '../widgets/common_widgets.dart';
+import '../widgets/social_brand_icon.dart';
 
 class ContactsScreen extends StatelessWidget {
-  const ContactsScreen({super.key});
+  const ContactsScreen({super.key, required this.access});
+
+  final AccessStore access;
 
   static const _supportLinks = <_ContactLink>[
     _ContactLink(
       title: 'Почта',
       subtitle: 'agronizer@yandex.ru',
       url: 'mailto:agronizer@yandex.ru',
-      icon: Icons.mail_outline_rounded,
+      materialIcon: Icons.mail_outline_rounded,
     ),
   ];
 
   static const _links = <_ContactLink>[
     _ContactLink(
       title: 'Телеграм',
-      subtitle: 't.me/microgreens_app',
-      url: 'https://t.me/microgreens_app',
-      icon: Icons.send_rounded,
+      subtitle: 't.me/agronizer',
+      url: 'https://t.me/agronizer',
+      brand: SocialBrand.telegram,
+    ),
+    _ContactLink(
+      title: 'ВКонтакте',
+      subtitle: 'vk.ru/agronizer',
+      url: 'https://vk.ru/agronizer',
+      brand: SocialBrand.vk,
     ),
     _ContactLink(
       title: 'Max',
       subtitle: 'max.ru/channel_agronizer',
       url: 'https://max.ru/channel_agronizer',
-      icon: Icons.chat_bubble_outline_rounded,
-    ),
-    _ContactLink(
-      title: 'ВКонтакте',
-      subtitle: 'vk.com/agronizer',
-      url: 'https://vk.com/agronizer',
-      icon: Icons.groups_rounded,
+      brand: SocialBrand.max,
     ),
     _ContactLink(
       title: 'Наш сайт',
       subtitle: 'agronizer.ru',
       url: 'https://agronizer.ru',
-      icon: Icons.language_rounded,
+      materialIcon: Icons.language_rounded,
     ),
   ];
 
@@ -61,23 +66,25 @@ class ContactsScreen extends StatelessWidget {
         children: [
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
               children: [
                 Text(
                   'Контакты',
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 12),
                 _ContactList(
                   links: _links,
                   onOpen: (url) => _open(context, url),
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 14),
                 Text(
-                  'Есть вопросы? Напишите нам',
-                  style: Theme.of(context).textTheme.titleLarge,
+                  'Есть вопросы/замечания/предложения?\nНапишите нам',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
                 _ContactList(
                   links: _supportLinks,
                   onOpen: (url) => _open(context, url),
@@ -86,21 +93,38 @@ class ContactsScreen extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
-            child: FutureBuilder<PackageInfo>(
-              future: PackageInfo.fromPlatform(),
-              builder: (context, snapshot) {
-                final info = snapshot.data;
-                if (info == null) return const SizedBox.shrink();
-                // Show marketing version only (pubspec before `+`), never build.
-                final name = info.version.split('+').first.trim();
-                if (name.isEmpty) return const SizedBox.shrink();
-                return Text(
-                  'Версия $name',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.muted,
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 12),
+            child: AnimatedBuilder(
+              animation: access,
+              builder: (context, _) {
+                final footerStyle =
+                    Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppColors.muted,
+                          fontSize: 13.5,
+                        );
+                return Column(
+                  children: [
+                    FutureBuilder<AppVersion>(
+                      future: AppVersion.fromPlatform(),
+                      builder: (context, snapshot) {
+                        final label = snapshot.data?.label.trim() ?? '';
+                        if (label.isEmpty) return const SizedBox.shrink();
+                        return Text(
+                          'Версия $label',
+                          textAlign: TextAlign.center,
+                          style: footerStyle,
+                        );
+                      },
+                    ),
+                    if (access.isPaid && access.paidExpiresAt != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Доступ активирован до ${formatRuAccessDate(access.paidExpiresAt!)}',
+                        textAlign: TextAlign.center,
+                        style: footerStyle,
                       ),
+                    ],
+                  ],
                 );
               },
             ),
@@ -120,14 +144,14 @@ class _ContactList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SoftPanel(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 2),
       child: Column(
         children: [
           for (var i = 0; i < links.length; i++) ...[
             if (i > 0)
               Divider(
                 height: 1,
-                indent: 72,
+                indent: 64,
                 color: AppColors.mist.withValues(alpha: 0.9),
               ),
             _ContactTile(
@@ -146,13 +170,15 @@ class _ContactLink {
     required this.title,
     required this.subtitle,
     required this.url,
-    required this.icon,
-  });
+    this.brand,
+    this.materialIcon,
+  }) : assert(brand != null || materialIcon != null);
 
   final String title;
   final String subtitle;
   final String url;
-  final IconData icon;
+  final SocialBrand? brand;
+  final IconData? materialIcon;
 }
 
 class _ContactTile extends StatelessWidget {
@@ -163,32 +189,44 @@ class _ContactTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: AppColors.mist,
-          borderRadius: BorderRadius.circular(14),
+    return Material(
+      color: Colors.transparent,
+      child: ListTile(
+        onTap: onTap,
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+        leading: Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: AppColors.mist,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          alignment: Alignment.center,
+          child: link.brand != null
+              ? SocialBrandIcon(
+                  brand: link.brand!,
+                  size: link.brand == SocialBrand.vk ? 24 : 22,
+                  color: AppColors.leaf,
+                )
+              : Icon(link.materialIcon, size: 22, color: AppColors.leaf),
         ),
-        child: Icon(link.icon, color: AppColors.leaf),
-      ),
-      title: Text(
-        link.title,
-        style: Theme.of(context).textTheme.titleMedium,
-      ),
-      subtitle: Text(
-        link.subtitle,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppColors.muted,
-            ),
-      ),
-      trailing: Icon(
-        Icons.open_in_new_rounded,
-        size: 18,
-        color: AppColors.muted.withValues(alpha: 0.8),
+        title: Text(
+          link.title,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        subtitle: Text(
+          link.subtitle,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: AppColors.muted,
+              ),
+        ),
+        trailing: Icon(
+          Icons.open_in_new_rounded,
+          size: 18,
+          color: AppColors.muted.withValues(alpha: 0.8),
+        ),
       ),
     );
   }

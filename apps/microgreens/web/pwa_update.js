@@ -1,6 +1,8 @@
 /* Offer a confirm dialog when a new service worker is waiting.
  * Reload only after the user accepts (SKIP_WAITING → controllerchange).
- * «Позже» dismisses for this waiting worker until the next build.
+ * «Позже» postpones this waiting build (localStorage) until a newer build appears.
+ * Note: after a full PWA quit, the browser may still activate a waiting worker on
+ * the next cold start — that cannot be blocked by the page.
  */
 (function () {
   if (!('serviceWorker' in navigator)) return;
@@ -11,6 +13,7 @@
   var reloading = false;
   var prompted = false;
   var watched = null;
+  var lastWaitingKey = '';
   var lastPingAt = 0;
   var PING_MIN_MS = 5 * 60 * 1000;
 
@@ -78,19 +81,37 @@
     }
   }
 
-  function isDismissed(reg) {
+  function rememberWaitingKey(reg) {
     var key = waitingKey(reg);
-    if (!key) return false;
+    if (key) lastWaitingKey = key;
+    return key;
+  }
+
+  function readDismissed() {
     try {
-      return sessionStorage.getItem(DISMISSED) === key;
+      var local = localStorage.getItem(DISMISSED);
+      if (local) return local;
+    } catch (_) {}
+    try {
+      return sessionStorage.getItem(DISMISSED) || '';
     } catch (_) {
-      return false;
+      return '';
     }
   }
 
+  function isDismissed(reg) {
+    var key = waitingKey(reg) || lastWaitingKey;
+    if (!key) return false;
+    return readDismissed() === key;
+  }
+
   function markDismissed(reg) {
-    var key = waitingKey(reg);
+    var key = waitingKey(reg) || lastWaitingKey;
     if (!key) return;
+    lastWaitingKey = key;
+    try {
+      localStorage.setItem(DISMISSED, key);
+    } catch (_) {}
     try {
       sessionStorage.setItem(DISMISSED, key);
     } catch (_) {}
@@ -100,6 +121,9 @@
   }
 
   function clearDismissed() {
+    try {
+      localStorage.removeItem(DISMISSED);
+    } catch (_) {}
     try {
       sessionStorage.removeItem(DISMISSED);
     } catch (_) {}
@@ -180,18 +204,21 @@
     prompted = true;
     clearUpdatingFlag();
     if (!overlay) return;
-    // Block ghost clicks that would hit «Установить» / Flutter under the overlay.
+    // Remove immediately so a trailing tap cannot hit «Установить».
     overlay.style.pointerEvents = 'none';
-    setTimeout(function () {
-      if (overlay.parentNode) overlay.remove();
-    }, 400);
+    if (overlay.parentNode) overlay.remove();
   }
 
   function showPrompt(reg) {
     if (isPwaSetupActive()) return;
     if (!reg || !reg.waiting) return;
     if (!navigator.serviceWorker.controller) return;
-    if (isDismissed(reg)) return;
+    rememberWaitingKey(reg);
+    if (isDismissed(reg)) {
+      prompted = true;
+      markPromptShown();
+      return;
+    }
     if (document.getElementById('agronizer-update-prompt')) return;
     if (document.getElementById('agronizer-installing')) return;
     if (prompted) return;
@@ -308,10 +335,14 @@
       reg.addEventListener('updatefound', function () {
         // New worker hash → allow prompting again for the new build.
         prompted = false;
+        lastWaitingKey = '';
         trackInstalling(reg.installing, reg);
       });
     }
-    if (reg.waiting) showPrompt(reg);
+    if (reg.waiting) {
+      rememberWaitingKey(reg);
+      showPrompt(reg);
+    }
     if (reg.installing) trackInstalling(reg.installing, reg);
   }
 
@@ -389,8 +420,21 @@
 
   window.agronizerBeginPwaInstall = showInstallingScreen;
   window.agronizerDismissPwaUpdate = function () {
+    // Persist synchronously so Flutter «Позже» wins any race with re-checks.
+    if (lastWaitingKey) {
+      try {
+        localStorage.setItem(DISMISSED, lastWaitingKey);
+      } catch (_) {}
+      try {
+        sessionStorage.setItem(DISMISSED, lastWaitingKey);
+      } catch (_) {}
+    }
+    markPromptShown();
+    prompted = true;
+    clearUpdatingFlag();
     navigator.serviceWorker.getRegistration(scopeUrl()).then(function (reg) {
       if (!reg) return;
+      rememberWaitingKey(reg);
       var overlay = document.getElementById('agronizer-update-prompt');
       dismissPrompt(overlay, reg);
     });

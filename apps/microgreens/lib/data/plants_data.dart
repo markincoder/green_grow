@@ -392,7 +392,7 @@ final plantsCatalog = <Plant>[
     name: 'Кольраби',
     description: 'Элегантная контрастная культура: яркий фиолетовый стебелек и темно-зеленые семядоли. Высокое содержание витамина C',
     icon: '🥦',
-    images: ['assets/plants/kolrabi1.jpg'],
+    images: ['assets/plants/kolrabi1.jpg', 'assets/plants/kolrabi3.jpg'],
     seedGramsMin: 2,
     seedGramsMax: 3,
     germinateHoursMin: _d(3),

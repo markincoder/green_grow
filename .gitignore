@@ -53,7 +53,7 @@ acme.json
 traefik/
 docker-compose.yml
 
-# Built APK artifacts (served copies live under site/apps/<id>/)
+# Built APK artifacts (output: dist/; not served from site/)
 *.apk
 
 # Local DB

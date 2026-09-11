@@ -94,60 +94,66 @@ class _HomeScreenState extends State<HomeScreen> {
         ]),
         builder: (context, _) {
           final reminders = _reminders;
-          final showAccess = widget.access.trialEndsAt != null ||
-              widget.access.paidExpiresAt != null;
+          // Paid line lives in Contacts — keep home free when activated.
+          final showAccess = !widget.access.isPaid &&
+              (widget.access.trialEndsAt != null ||
+                  widget.access.paidExpiresAt != null ||
+                  widget.access.canActivateAccess);
           return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                child: Column(
                   children: [
-                        const BrandLogo(),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          height: 58,
-                          width: double.infinity,
-                          child: FilledButton.icon(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppColors.leaf,
-                              foregroundColor: Colors.white,
-                              textStyle: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(22),
+                    const BrandLogo(maxWidth: 240),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 52,
+                      child: FilledButton.icon(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.leaf,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          textStyle: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                        ),
+                        onPressed: widget.onAddPlant,
+                        icon: const Icon(Icons.add_rounded, size: 24),
+                        label: const Text('Выращивать'),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Material(
+                      color: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        side: BorderSide(
+                          color: AppColors.mist.withValues(alpha: 0.9),
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => SettingsScreen(
+                                settings: widget.settings,
                               ),
                             ),
-                            onPressed: widget.onAddPlant,
-                            icon: const Icon(Icons.add_rounded, size: 26),
-                            label: const Text('Выращивать'),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          'Выберите вид микрозелени.\nЕсли зелень уже растет, ее тоже можно добавить',
-                          textAlign: TextAlign.center,
-                          style: Theme.of(context).textTheme.bodyMedium,
-                        ),
-                        const SizedBox(height: 18),
-                        SoftPanel(
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => SettingsScreen(
-                                  settings: widget.settings,
-                                ),
-                              ),
-                            );
-                          },
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
+                          );
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
                           child: Row(
                             children: [
                               Icon(
@@ -157,22 +163,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                 color: widget.settings.enabled
                                     ? AppColors.meadow
                                     : AppColors.muted,
+                                size: 22,
                               ),
-                              const SizedBox(width: 12),
+                              const SizedBox(width: 10),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Настройки уведомлений',
+                                      'Напоминания',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: Theme.of(context)
                                           .textTheme
-                                          .titleMedium,
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                     ),
                                     Text(
                                       widget.settings.enabled
                                           ? 'Ежедневно в ${widget.settings.reminderTimeLabel}'
-                                          : 'Выключены · нажмите, чтобы настроить',
+                                          : 'Выключены',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodyMedium,
@@ -183,28 +197,34 @@ class _HomeScreenState extends State<HomeScreen> {
                               const Icon(
                                 Icons.chevron_right_rounded,
                                 color: AppColors.forest,
+                                size: 22,
                               ),
                             ],
                           ),
                         ),
-                        if (reminders.isNotEmpty) ...[
-                          const SizedBox(height: 18),
-                          Text(
-                            'Планируется',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          for (final item in reminders)
-                            _ReminderTile(
-                              item: item,
-                              onMarkDone: item.done
-                                  ? null
-                                  : () => async.unawaited(_markDone(item)),
-                            ),
-                        ],
-                      ],
+                      ),
                     ),
+                  ],
+                ),
               ),
+              if (reminders.isNotEmpty) ...[
+                const SizedBox(height: 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    'Планируется',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Expanded(
+                  child: _PlanningScroll(
+                    reminders: reminders,
+                    onMarkDone: (item) => async.unawaited(_markDone(item)),
+                  ),
+                ),
+              ] else
+                const Spacer(),
               if (showAccess)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
@@ -217,6 +237,111 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
+    );
+  }
+}
+
+/// Scrollable reminders list with a bottom arrow when more content is below.
+class _PlanningScroll extends StatefulWidget {
+  const _PlanningScroll({
+    required this.reminders,
+    required this.onMarkDone,
+  });
+
+  final List<TodayReminderItem> reminders;
+  final ValueChanged<TodayReminderItem> onMarkDone;
+
+  @override
+  State<_PlanningScroll> createState() => _PlanningScrollState();
+}
+
+class _PlanningScrollState extends State<_PlanningScroll> {
+  final _controller = ScrollController();
+  var _canScrollMore = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_updateHint);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateHint());
+  }
+
+  @override
+  void didUpdateWidget(covariant _PlanningScroll oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateHint());
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_updateHint);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _updateHint() {
+    if (!mounted || !_controller.hasClients) return;
+    final position = _controller.position;
+    final more = position.maxScrollExtent > 8 &&
+        position.pixels < position.maxScrollExtent - 8;
+    if (more != _canScrollMore) {
+      setState(() => _canScrollMore = more);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        NotificationListener<ScrollMetricsNotification>(
+          onNotification: (_) {
+            _updateHint();
+            return false;
+          },
+          child: ListView.builder(
+            controller: _controller,
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+            itemCount: widget.reminders.length,
+            itemBuilder: (context, index) {
+              final item = widget.reminders[index];
+              return _ReminderTile(
+                item: item,
+                onMarkDone: item.done ? null : () => widget.onMarkDone(item),
+              );
+            },
+          ),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              opacity: _canScrollMore ? 1 : 0,
+              duration: const Duration(milliseconds: 180),
+              child: Container(
+                height: 36,
+                alignment: Alignment.bottomCenter,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      AppColors.canvas.withValues(alpha: 0),
+                      AppColors.canvas.withValues(alpha: 0.92),
+                    ],
+                  ),
+                ),
+                child: Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.forest.withValues(alpha: 0.75),
+                  size: 28,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

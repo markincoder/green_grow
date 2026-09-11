@@ -24,7 +24,7 @@ void main() {
     expect(find.textContaining('Бесплатный доступ до'), findsOneWidget);
     expect(find.text('Продлить доступ'), findsOneWidget);
     expect(find.text('или введите код активации'), findsNothing);
-    expect(find.byTooltip('Выращено'), findsNothing);
+    expect(find.byTooltip('Мой урожай'), findsNothing);
   });
 
   testWidgets('opens harvest stats from garden', (tester) async {
@@ -36,25 +36,25 @@ void main() {
     await tester.tap(find.text('Моя грядка'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('Выращено'));
+    await tester.tap(find.byTooltip('Мой урожай'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Выращено'), findsWidgets);
-    expect(find.text('Все'), findsOneWidget);
+    expect(find.text('Мой урожай'), findsWidgets);
+    expect(find.text('За все время'), findsOneWidget);
     expect(find.text('За неделю'), findsNothing);
     expect(find.text('За месяц'), findsNothing);
-    expect(find.text('Выбрать...'), findsOneWidget);
-    expect(find.text('От'), findsNothing);
+    expect(find.text('За период...'), findsOneWidget);
+    expect(find.text('с'), findsNothing);
     expect(
-      find.textContaining('Пока нет собранных лотков'),
+      find.textContaining('Урожая пока нет'),
       findsOneWidget,
     );
 
-    await tester.tap(find.text('Выбрать...'));
+    await tester.tap(find.text('За период...'));
     await tester.pumpAndSettle();
-    expect(find.text('От'), findsOneWidget);
-    expect(find.text('До'), findsOneWidget);
-    expect(find.text('начало'), findsOneWidget);
+    expect(find.text('с'), findsOneWidget);
+    expect(find.text('по'), findsOneWidget);
+    expect(find.text('начала'), findsOneWidget);
     expect(find.text('сегодня'), findsOneWidget);
   });
 
@@ -107,12 +107,18 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Доступ активирован до'), findsOneWidget);
+    // Activated access is not on Home — lives under Contacts with version.
+    expect(find.textContaining('Доступ активирован до'), findsNothing);
     expect(find.textContaining('Бесплатный доступ до'), findsNothing);
     expect(find.textContaining('Пробная бесплатная версия до'), findsNothing);
     expect(find.text('Активировать доступ'), findsNothing);
     expect(find.text('Продлить доступ'), findsNothing);
     expect(find.text('Главная'), findsOneWidget);
+    expect(find.byKey(const ValueKey('trial-access')), findsNothing);
+
+    await tester.tap(find.text('Контакты'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Доступ активирован до'), findsOneWidget);
   });
 
   testWidgets('shows activate again when paid access ended', (tester) async {

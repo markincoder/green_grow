@@ -273,7 +273,10 @@ async def legacy_app_path(rest: str, request: Request):
 
 @app.get("/green_grow.apk")
 async def legacy_apk(request: Request):
-    return _redirect("/apps/microgreens/microgreens.apk", request)
+    return _redirect(
+        "https://www.rustore.ru/catalog/app/com.agronizer.greengrow",
+        request,
+    )
 
 
 def _env_clean(name: str) -> str:

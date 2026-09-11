@@ -335,7 +335,7 @@ Future<void> renameTray(
     context: context,
     builder: (ctx) {
       return AlertDialog(
-        title: const Text('Название лотка'),
+        title: const Text('Название посева'),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -868,7 +868,7 @@ class _StartDateSheetState extends State<_StartDateSheet> {
               ),
               const SizedBox(height: 18),
               Text(
-                'Новый лоток',
+                'Новый посев',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
               const SizedBox(height: 16),

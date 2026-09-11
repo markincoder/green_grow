@@ -3,14 +3,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'tray_history_store.dart';
 
-/// Window for the «Выращено» table.
+/// Window for the «Мой урожай» table.
 enum HarvestStatsPeriod { all, week, month, custom }
 
 String harvestStatsPeriodLabel(HarvestStatsPeriod period) => switch (period) {
-      HarvestStatsPeriod.all => 'Все',
+      HarvestStatsPeriod.all => 'За все время',
       HarvestStatsPeriod.week => 'За неделю',
       HarvestStatsPeriod.month => 'За месяц',
-      HarvestStatsPeriod.custom => 'Выбрать...',
+      HarvestStatsPeriod.custom => 'За период...',
     };
 
 class HarvestStatsRange {
@@ -130,7 +130,7 @@ int harvestStatsTotal(Iterable<HarvestStatRow> rows) =>
     rows.fold<int>(0, (sum, row) => sum + row.trayCount);
 
 String harvestStatsTotalLabel(int total) =>
-    'Всего $total ${harvestStatsTraysWord(total)}';
+    'Все культуры: $total ${harvestStatsTraysWord(total)}';
 
 String harvestStatsTraysWord(int count) {
   final n = count.abs() % 100;

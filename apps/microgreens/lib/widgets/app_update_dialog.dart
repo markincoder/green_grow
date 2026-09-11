@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../services/app_update.dart';
+import '../services/rustore_open.dart';
 import '../state/access_store.dart';
 import '../theme/app_theme.dart';
 
@@ -11,7 +11,7 @@ Future<void> showAppUpdateDialog(BuildContext context, AccessStore access) {
     context: context,
     builder: (ctx) => AlertDialog(
       title: const Text('Обнаружено обновление'),
-      content: Text(_message(access, auto: kIsWeb)),
+      content: Text(_message(access)),
       actions: [
         TextButton(
           onPressed: () {
@@ -27,31 +27,23 @@ Future<void> showAppUpdateDialog(BuildContext context, AccessStore access) {
               await applyWebAppUpdate();
               return;
             }
-            await launchUrl(
-              access.updateApkUri,
-              mode: LaunchMode.externalApplication,
-            );
+            await openRuStoreListing(access.updateApkUri);
           },
           style: FilledButton.styleFrom(
             backgroundColor: AppColors.leaf,
             foregroundColor: Colors.white,
           ),
-          child: const Text('Установить'),
+          child: Text(kIsWeb ? 'Установить' : 'В RuStore'),
         ),
       ],
     ),
   );
 }
 
-String _message(AccessStore access, {required bool auto}) {
+String _message(AccessStore access) {
   final remote = access.remoteVersion?.label;
-  final headline = (remote != null && remote.isNotEmpty)
-      ? 'Доступна версия $remote.'
-      : 'Доступна новая версия приложения.';
-  if (auto) {
-    return '$headline Установить сейчас? Страница перезагрузится.';
+  if (remote != null && remote.isNotEmpty) {
+    return 'Доступна версия $remote.';
   }
-  return '$headline Автоматически установить нельзя.\n\n'
-      'Нажмите «Установить», откройте скачанный файл и подтвердите установку '
-      'поверх текущей версии.';
+  return 'Доступна новая версия приложения.';
 }

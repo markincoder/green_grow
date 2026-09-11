@@ -1,5 +1,6 @@
-﻿# Build one Agronizer Flutter app (APK and/or PWA) into site/apps/<id>/.
-# Артефакты отдаёт FastAPI из platform/push (STATIC_DIR=site). Flutter на сервер не нужен.
+﻿# Build one Agronizer Flutter app: PWA → site/apps/<id>/, APK → dist/ (+ Yandex.Disk).
+# Артефакты PWA отдаёт FastAPI из platform/push (STATIC_DIR=site). Flutter на сервер не нужен.
+# APK кладётся в dist/ и копируется в Yandex.Disk\agronizer (на сайт больше не копируется).
 param(
   [Parameter(Mandatory = $true)]
   [Alias("App")]
@@ -59,6 +60,7 @@ $cfg = Get-AgronizerApp -AppId $AppId
 $flutter = Get-FlutterBat
 $flutterRoot = Join-Path $root (($cfg.flutterRoot -replace "/", "\").TrimStart("\"))
 $siteApp = Join-Path $root (($cfg.sitePath -replace "/", "\").TrimStart("\"))
+$distDir = Join-Path $root "dist"
 $baseHref = "$($cfg.baseHref)"
 if ([string]::IsNullOrWhiteSpace($baseHref)) {
   throw "App '$AppId' has empty baseHref in apps/apps.json"
@@ -73,10 +75,14 @@ if (-not (Test-Path (Join-Path $flutterRoot "pubspec.yaml"))) {
 Write-Host "======== Build app: $($cfg.id) ($($cfg.name)) ========"
 Write-Host "Flutter: $flutterRoot"
 Write-Host "Site:    $siteApp"
+Write-Host "Dist:    $distDir"
 Write-Host "Href:    $baseHref"
 
 if (-not (Test-Path $siteApp)) {
   New-Item -ItemType Directory -Path $siteApp -Force | Out-Null
+}
+if (-not (Test-Path $distDir)) {
+  New-Item -ItemType Directory -Path $distDir -Force | Out-Null
 }
 
 # —— APK ——
@@ -90,7 +96,7 @@ if (-not $SkipApk) {
   Set-Location $flutterRoot
   $apkOutDir = Join-Path $flutterRoot "build\app\outputs\flutter-apk"
   $arm64Apk = Join-Path $apkOutDir "app-arm64-v8a-release.apk"
-  $destApk = Join-Path $siteApp "$($cfg.apkFile)"
+  $destApk = Join-Path $distDir "$($cfg.apkFile)"
 
   if (-not $SkipClean -and (Test-Path $apkOutDir)) {
     Remove-Item -Recurse -Force $apkOutDir
@@ -105,8 +111,22 @@ if (-not $SkipApk) {
   }
 
   Copy-Item $arm64Apk $destApk -Force
+  # Do not ship APK with the website — RuStore is the install channel.
+  $staleSiteApk = Join-Path $siteApp "$($cfg.apkFile)"
+  if (Test-Path $staleSiteApk) {
+    Remove-Item -Force $staleSiteApk
+    Write-Host "==> Removed stale site APK: $staleSiteApk"
+  }
   $sizeMb = [math]::Round((Get-Item $destApk).Length / 1MB, 2)
   Write-Host "==> APK -> $destApk ($sizeMb MB)"
+
+  $yandexApkDir = "C:\Users\Sergey\Documents\Yandex.Disk\agronizer"
+  if (-not (Test-Path $yandexApkDir)) {
+    New-Item -ItemType Directory -Path $yandexApkDir -Force | Out-Null
+  }
+  $yandexApk = Join-Path $yandexApkDir "$($cfg.apkFile)"
+  Copy-Item $destApk $yandexApk -Force
+  Write-Host "==> APK -> $yandexApk"
 
   if ($VerifyApk) {
     $apksigner = Join-Path $env:LOCALAPPDATA "Android\Sdk\build-tools\36.0.0\apksigner.bat"
@@ -189,8 +209,13 @@ if ($Aab) {
     $zip.Dispose()
   }
 
-  $sizeMb = [math]::Round((Get-Item $aabPath).Length / 1MB, 2)
-  Write-Host "==> AAB -> $aabPath ($sizeMb MB)"
+  $destAab = Join-Path $distDir ([IO.Path]::ChangeExtension("$($cfg.apkFile)", ".aab"))
+  if (-not (Test-Path $distDir)) {
+    New-Item -ItemType Directory -Path $distDir -Force | Out-Null
+  }
+  Copy-Item $aabPath $destAab -Force
+  $sizeMb = [math]::Round((Get-Item $destAab).Length / 1MB, 2)
+  Write-Host "==> AAB -> $destAab ($sizeMb MB)"
   Write-Host "Upload this file to Google Play Console (Production / Testing)."
 }
 
@@ -213,9 +238,7 @@ if (-not $SkipWeb) {
   }
 
   Write-Host "==> Copying PWA -> $siteApp"
-  Get-ChildItem $siteApp -Force |
-    Where-Object { $_.Name -ne "$($cfg.apkFile)" } |
-    Remove-Item -Recurse -Force
+  Get-ChildItem $siteApp -Force | Remove-Item -Recurse -Force
 
   Copy-Item -Path (Join-Path $buildWeb "*") -Destination $siteApp -Recurse -Force
 

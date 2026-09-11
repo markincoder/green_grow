@@ -10,7 +10,7 @@
  */
 'use strict';
 
-const CACHE = 'microgreens-shell-1.0.16+22-0ffe6071';
+const CACHE = 'microgreens-shell-1.0.17+24-0ba9e28c';
 const PRECACHE = [
   './',
   './index.html',

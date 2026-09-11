@@ -215,7 +215,7 @@ void main() {
     );
     expect(
       garden.statusLine(pea, DateTime(2026, 8, 17, 11, 33)),
-      'Замачивается. Прошло 4ч - Посеять сегодня с 16:00',
+      'Замачивается. Прошло 4ч - посеять сегодня с 16:00',
     );
     expect(
       garden.soakActionLabel(pea, DateTime(2026, 8, 17, 16, 1)),
@@ -224,6 +224,14 @@ void main() {
     expect(
       garden.statusLine(pea, DateTime(2026, 8, 17, 16, 1)),
       'Замачивается. Посеять',
+    );
+    expect(
+      garden.soakActionLabel(pea, DateTime(2026, 8, 17, 8, 33)),
+      'прошел 1ч - посеять сегодня с 16:00',
+    );
+    expect(
+      garden.statusLine(pea, DateTime(2026, 8, 17, 8, 33)),
+      'Замачивается. Прошел 1ч - посеять сегодня с 16:00',
     );
   });
 

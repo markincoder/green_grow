@@ -47,7 +47,7 @@ class StageGlyph extends StatelessWidget {
   }
 }
 
-/// Harvest basket for «Выращено».
+/// Harvest basket for «Мой урожай».
 class HarvestGlyph extends StatelessWidget {
   const HarvestGlyph({
     super.key,
@@ -61,17 +61,12 @@ class HarvestGlyph extends StatelessWidget {
     return SizedBox(
       width: size,
       height: size,
-      child: ClipOval(
-        child: Transform.scale(
-          scale: 1.42,
-          child: Image.asset(
-            'assets/harvest_basket.png',
-            width: size,
-            height: size,
-            filterQuality: FilterQuality.medium,
-            fit: BoxFit.cover,
-          ),
-        ),
+      child: Image.asset(
+        'assets/harvest_basket.png',
+        width: size,
+        height: size,
+        filterQuality: FilterQuality.medium,
+        fit: BoxFit.contain,
       ),
     );
   }

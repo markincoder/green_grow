@@ -57,20 +57,9 @@ class _CultureNotesFieldState extends State<CultureNotesField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Заметки',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            const Icon(
-              Icons.edit_rounded,
-              size: 20,
-              color: AppColors.forest,
-            ),
-          ],
+        Text(
+          'Заметки',
+          style: Theme.of(context).textTheme.titleLarge,
         ),
         const SizedBox(height: 12),
         Container(

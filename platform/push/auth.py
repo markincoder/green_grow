@@ -400,7 +400,7 @@ def published_app_info(site: str) -> dict[str, Any]:
     return {
         "appVersion": version,
         "appBuild": build,
-        "apkUrl": f"{base}/apps/microgreens/microgreens.apk?v={build}",
+        "apkUrl": "https://www.rustore.ru/catalog/app/com.agronizer.greengrow",
         "pwaUrl": f"{base}/apps/microgreens/",
     }
 

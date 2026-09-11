@@ -18,8 +18,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="Микрозелень">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png"/>
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/Icon-192.png"/>
   <!-- Yandex.Metrika counter -->
   <script type="text/javascript">
     (function(m,e,t,r,i,k,a){
@@ -41,6 +41,15 @@
       height: 100%;
       margin: 0;
       background: #F3FAF5;
+    }
+    /* Flutter hosts default to black — match app canvas so a late first frame
+       never flashes / sticks as a black screen. */
+    flt-glass-pane,
+    flt-scene-host,
+    flutter-view,
+    flt-renderer,
+    canvas {
+      background: #F3FAF5 !important;
     }
     #agronizer-splash {
       position: fixed;
@@ -102,9 +111,9 @@
   </script>
   <script src="push_client.js?v=sub27" defer></script>
   <!-- Icon install on this page (SW scope). Chrome uses beforeinstallprompt. -->
-  <script src="setup_gate.js?v=gate67" defer></script>
-  <script src="pwa_update.js?v=1.0.16+22-0ffe6071" defer></script>
-  <script src="flutter_bootstrap.js?v=1.0.16+22-0ffe6071" async></script>
+  <script src="setup_gate.js?v=gate68" defer></script>
+  <script src="pwa_update.js?v=1.0.17+24-0ba9e28c" defer></script>
+  <script src="flutter_bootstrap.js?v=1.0.17+24-0ba9e28c" async></script>
 </head>
 <body>
   <div id="agronizer-splash">
@@ -125,7 +134,10 @@
         document.title = 'Установка…';
       }
 
+      var booted = false;
       function hide() {
+        if (booted) return;
+        booted = true;
         try {
           sessionStorage.removeItem('pwa_applying_update');
         } catch (_) {}
@@ -133,8 +145,27 @@
         var el = document.getElementById('agronizer-splash');
         if (el) el.remove();
       }
-      window.addEventListener('flutter-first-frame', hide);
-      setTimeout(hide, updating ? 60000 : 20000);
+
+      window.addEventListener('flutter-first-frame', function () {
+        try {
+          sessionStorage.removeItem('pwa_boot_retry');
+        } catch (_) {}
+        hide();
+      });
+
+      // If Flutter never paints, one automatic reload (then reveal canvas).
+      setTimeout(function () {
+        if (booted) return;
+        try {
+          if (sessionStorage.getItem('pwa_boot_retry') !== '1') {
+            sessionStorage.setItem('pwa_boot_retry', '1');
+            sessionStorage.removeItem('pwa_applying_update');
+            location.reload();
+            return;
+          }
+        } catch (_) {}
+        hide();
+      }, updating ? 15000 : 12000);
     })();
   </script>
 </body>

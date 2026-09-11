@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../data/plants_data.dart';
 import '../models/plant.dart';
+import '../services/ui_filter_prefs.dart';
 import '../state/favorites_store.dart';
 import '../state/garden_store.dart';
 import '../theme/app_theme.dart';
@@ -31,6 +32,27 @@ class GardenScreen extends StatefulWidget {
 class _GardenScreenState extends State<GardenScreen> {
   _GardenFilter _filter = _GardenFilter.all;
   final UndoSnackBarHost _undoSnackBar = UndoSnackBarHost();
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreFilter();
+  }
+
+  Future<void> _restoreFilter() async {
+    final name = await GardenFilterPrefs.loadName(
+      allowed: _GardenFilter.values.map((f) => f.name),
+    );
+    final match = _GardenFilter.values.where((f) => f.name == name);
+    if (!mounted || match.isEmpty) return;
+    setState(() => _filter = match.first);
+  }
+
+  Future<void> _selectFilter(_GardenFilter filter) async {
+    if (_filter == filter) return;
+    setState(() => _filter = filter);
+    await GardenFilterPrefs.saveName(filter.name);
+  }
 
   @override
   void dispose() {
@@ -197,31 +219,27 @@ class _GardenScreenState extends State<GardenScreen> {
                   ],
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  height: 40,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: filters.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final chip = filters[index];
-                      final count = switch (chip.filter) {
-                        _GardenFilter.all => all.length,
-                        _GardenFilter.soak => _countForStage(GrowthStage.soak, now),
-                        _GardenFilter.germinate =>
-                          _countForStage(GrowthStage.germinate, now),
-                        _GardenFilter.grow => _countForStage(GrowthStage.grow, now),
-                        _GardenFilter.dueToday => _countDueToday(now),
-                      };
-                      return _StageChip(
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    for (final chip in filters)
+                      _StageChip(
                         glyph: chip.glyph,
                         tooltip: chip.tooltip,
-                        count: count,
+                        count: switch (chip.filter) {
+                          _GardenFilter.all => all.length,
+                          _GardenFilter.soak =>
+                            _countForStage(GrowthStage.soak, now),
+                          _GardenFilter.germinate =>
+                            _countForStage(GrowthStage.germinate, now),
+                          _GardenFilter.grow =>
+                            _countForStage(GrowthStage.grow, now),
+                          _GardenFilter.dueToday => _countDueToday(now),
+                        },
                         selected: _filter == chip.filter,
-                        onSelected: () => setState(() => _filter = chip.filter),
-                      );
-                    },
-                  ),
+                        onSelected: () => _selectFilter(chip.filter),
+                      ),
+                  ],
                 ),
               ],
             ),
@@ -404,6 +422,11 @@ class _StageChip extends StatelessWidget {
       selected: selected,
       onSelected: (_) => onSelected(),
       showCheckmark: false,
+      // Default FilterChip padding leaves empty space left of the icon.
+      padding: EdgeInsets.zero,
+      labelPadding: const EdgeInsets.symmetric(horizontal: 6),
+      visualDensity: VisualDensity.compact,
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       selectedColor: AppColors.leaf.withValues(alpha: 0.18),
       labelStyle: TextStyle(
         color: selected ? AppColors.forest : AppColors.ink,

@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#1B4332</color>
+    <!-- App canvas — keep window from flashing black before Flutter paints. -->
+    <color name="agronizer_canvas">#F3FAF5</color>
 </resources>

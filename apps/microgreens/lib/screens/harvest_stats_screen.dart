@@ -15,7 +15,7 @@ class HarvestStatsButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Tooltip(
-      message: 'Выращено',
+      message: 'Мой урожай',
       child: SizedBox(
         width: size,
         height: size,
@@ -133,7 +133,7 @@ class _HarvestStatsScreenState extends State<HarvestStatsScreen> {
     var to = harvestStatsDay(_customTo ?? today);
     final picked = await showAppDateWheel(
       context: context,
-      title: isFrom ? 'От' : 'До',
+      title: isFrom ? 'с' : 'по',
       initialDate: isFrom ? from : to,
       minimumDate: first,
       maximumDate: today,
@@ -180,7 +180,7 @@ class _HarvestStatsScreenState extends State<HarvestStatsScreen> {
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        title: const Text('Выращено'),
+        title: const Text('Мой урожай'),
       ),
       body: !_ready
           ? const Center(
@@ -232,8 +232,8 @@ class _HarvestStatsScreenState extends State<HarvestStatsScreen> {
                       children: [
                         Expanded(
                           child: _DateBoundButton(
-                            label: 'От',
-                            shortcutLabel: 'начало',
+                            label: 'с',
+                            shortcutLabel: 'начала',
                             onShortcut: _jumpFromToStart,
                             value: formatHarvestFilterDate(
                               _customFrom ?? _firstHarvest ?? DateTime.now(),
@@ -244,7 +244,7 @@ class _HarvestStatsScreenState extends State<HarvestStatsScreen> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: _DateBoundButton(
-                            label: 'До',
+                            label: 'по',
                             shortcutLabel: 'сегодня',
                             onShortcut: _jumpToToToday,
                             value: formatHarvestFilterDate(
@@ -278,7 +278,7 @@ class _HarvestStatsScreenState extends State<HarvestStatsScreen> {
                             padding: const EdgeInsets.all(28),
                             child: Text(
                               _period == HarvestStatsPeriod.all
-                                  ? 'Пока нет собранных лотков.\nНажмите «Собрать» на Моей грядке.'
+                                  ? 'Урожая пока нет.\nПоявится после того, как нажмете Собрать для выращенного на Моей грядке'
                                   : 'За этот период ничего не собрано.',
                               textAlign: TextAlign.center,
                               style: Theme.of(context).textTheme.bodyMedium,

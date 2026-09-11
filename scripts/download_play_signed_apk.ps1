@@ -1,4 +1,4 @@
-# Download the Google Play-signed APK (App Signing key) for the website.
+# Download a store-signed APK into dist/ (for RuStore upload).
 # Local flutter APK uses the upload key — Play Protect warns. This file matches Play.
 #
 # One-time setup:
@@ -23,7 +23,11 @@ $ErrorActionPreference = "Stop"
 
 $root = Get-AgronizerRoot
 $cfg = Get-AgronizerApp -AppId $AppId
-$siteApk = Join-Path $root (($cfg.sitePath -replace "/", "\") + "\" + $cfg.apkFile)
+$distDir = Join-Path $root "dist"
+if (-not (Test-Path $distDir)) {
+  New-Item -ItemType Directory -Path $distDir -Force | Out-Null
+}
+$distApk = Join-Path $distDir "$($cfg.apkFile)"
 
 if ([string]::IsNullOrWhiteSpace($JsonKey)) {
   $JsonKey = Join-Path $root "secrets\play-service-account.json"
@@ -38,7 +42,7 @@ and save the JSON key there (or pass -JsonKey).
 }
 
 if ([string]::IsNullOrWhiteSpace($Out)) {
-  $Out = $siteApk
+  $Out = $distApk
 }
 
 $py = Join-Path $PSScriptRoot "download_play_signed_apk.py"
@@ -62,4 +66,12 @@ if ($LASTEXITCODE -ne 0) {
   Write-Error "download_play_signed_apk.py failed (exit $LASTEXITCODE)"
 }
 
-Write-Host "==> Website APK: $Out"
+Write-Host "==> Dist APK: $Out"
+
+$yandexApkDir = "C:\Users\Sergey\Documents\Yandex.Disk\agronizer"
+if (-not (Test-Path $yandexApkDir)) {
+  New-Item -ItemType Directory -Path $yandexApkDir -Force | Out-Null
+}
+$yandexApk = Join-Path $yandexApkDir (Split-Path $Out -Leaf)
+Copy-Item $Out $yandexApk -Force
+Write-Host "==> Yandex.Disk APK: $yandexApk"

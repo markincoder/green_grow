@@ -353,7 +353,7 @@ class _MainShellState extends State<MainShell> {
         },
         onDetailPlantAdded: _goToGarden,
       ),
-      const ContactsScreen(),
+      ContactsScreen(access: widget.access),
     ];
 
     return Scaffold(

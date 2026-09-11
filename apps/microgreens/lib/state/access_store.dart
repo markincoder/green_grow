@@ -77,8 +77,9 @@ class AccessStore extends ChangeNotifier {
   Uri get updateApkUri {
     final raw = apkUrl.trim();
     if (raw.isNotEmpty) return Uri.parse(raw);
-    final base = siteUrl.replaceAll(RegExp(r'/+$'), '');
-    return Uri.parse('$base/apps/microgreens/microgreens.apk');
+    return Uri.parse(
+      'https://www.rustore.ru/catalog/app/com.agronizer.greengrow',
+    );
   }
 
   Uri get siteUri => Uri.parse(siteUrl);

@@ -97,7 +97,7 @@ void main() {
       'Амарант 1',
     ]);
     expect(harvestStatsTotal(rows), 20);
-    expect(harvestStatsTotalLabel(20), 'Всего 20 лотков');
+    expect(harvestStatsTotalLabel(20), 'Все культуры: 20 лотков');
     expect(harvestStatsBarFraction(8, 8), 1);
     expect(harvestStatsBarFraction(4, 8), 0.5);
     expect(harvestStatsBarFraction(1, 8), 0.125);
@@ -210,7 +210,7 @@ void main() {
     expect(harvestStatsTraysWord(5), 'лотков');
     expect(harvestStatsTraysWord(14), 'лотков');
     expect(harvestStatsTraysWord(21), 'лоток');
-    expect(harvestStatsTotalLabel(14), 'Всего 14 лотков');
+    expect(harvestStatsTotalLabel(14), 'Все культуры: 14 лотков');
   });
 
   test('bar fraction is relative to the leader', () {

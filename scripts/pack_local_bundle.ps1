@@ -68,6 +68,16 @@ Copy-Item -Path $site -Destination $siteDest -Recurse -Force
 if (-not $IncludeApk) {
   Get-ChildItem -Path $siteDest -Filter *.apk -Recurse -ErrorAction SilentlyContinue |
     Remove-Item -Force
+} else {
+  $distApk = Join-Path $root ("dist\" + (Get-AgronizerApp -AppId "microgreens").apkFile)
+  if (Test-Path $distApk) {
+    $apkDestDir = Join-Path $dest "dist"
+    New-Item -ItemType Directory -Path $apkDestDir -Force | Out-Null
+    Copy-Item -Path $distApk -Destination (Join-Path $apkDestDir (Split-Path $distApk -Leaf)) -Force
+    Write-Host "    included dist APK"
+  } else {
+    Write-Warning "IncludeApk set but APK not found: $distApk"
+  }
 }
 
 # platform/push (code + env; skip venv/data/cache)
